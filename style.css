@@ -1,0 +1,115 @@
+:root {
+  --primary: #2a5c82;
+  --secondary: #5cb85c;
+  --accent: #ffc107;
+}
+
+body {
+  background: #f8f9fa;
+  min-height: 100vh;
+  /* Adiciona um padding extra para que o conteúdo não fique colado nas laterais em mobile */
+  padding: 10px;
+}
+
+/* Cartões */
+.calculator-card,
+.result-card {
+  border-radius: 15px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  transition: transform 0.3s ease;
+  margin: 0 auto;
+  max-width: 100%;
+}
+
+.calculator-card:hover,
+.result-card:hover {
+  transform: translateY(-5px);
+}
+
+/* Estilo dos inputs */
+.form-control:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 0.25rem rgba(42, 92, 130, 0.25);
+}
+
+/* Cartão de resultado */
+.result-card {
+  background: linear-gradient(135deg, var(--primary), #1a3a57);
+  color: white;
+  border: none;
+}
+
+.result-card h4 {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+  padding-bottom: 10px;
+}
+
+/* Destaques */
+.highlight {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* Input Group */
+.input-group-text {
+  background-color: var(--primary);
+  color: white;
+  border: none;
+}
+
+/* Botões */
+.btn-primary {
+  background-color: var(--primary);
+  border: none;
+  padding: 12px 30px;
+}
+
+.btn-primary:hover {
+  background-color: #1a3a57;
+}
+
+/* Botões de Compartilhamento */
+.btn-share {
+  background-color: #5cb85c;
+  border: none;
+  color: #2a5c82;
+  font-weight: bold;
+  padding: 12px;
+  border-radius: 8px;
+  transition: background-color 0.3s ease;
+  margin-top: 5px;
+  margin-bottom: 5px;
+}
+
+.btn-share:hover {
+  background-color: #ffca28;
+  color: #2a5c82;
+}
+
+/* Toast (notificação) */
+#toast {
+  position: fixed;
+  bottom: 20px;
+  margin: 10px;
+  right: 20px;
+  background-color: #5cb85c;
+  color: white;
+  padding: 10px 20px;
+  border-radius: 5px;
+  opacity: 0;
+  transition: opacity 0.5s ease;
+  z-index: 9999;
+}
+
+/* Ajustes para mobile */
+@media (max-width: 576px) {
+  .container {
+    padding-left: 15px;
+    padding-right: 15px;
+  }
+  .calculator-card,
+  .result-card {
+    margin-left: 5px;
+    margin-right: 5px;
+  }
+}

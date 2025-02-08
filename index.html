@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Calculadora de Guincho - TruckCalc</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body class="d-flex align-items-center">
+    <div class="container py-5">
+      <div class="row justify-content-center">
+        <div class="col-lg-8">
+          <!-- Card da Calculadora -->
+          <div class="calculator-card card p-4 mb-4">
+            <h2 class="mb-4 text-center">
+              <i class="fas fa-calculator me-2"></i>Calculadora de Guincho
+            </h2>
+            <div class="row g-4">
+              <!-- Dados do Serviço -->
+              <div class="col-md-6">
+                <label class="form-label">Taxa de Saída (R$)</label>
+                <div class="input-group">
+                  <span class="input-group-text"
+                    ><i class="fas fa-dollar-sign"></i
+                  ></span>
+                  <input
+                    type="number"
+                    id="taxa"
+                    class="form-control"
+                    step="0.01"
+                    required
+                  />
+                </div>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Valor por KM (R$)</label>
+                <div class="input-group">
+                  <span class="input-group-text"
+                    ><i class="fas fa-road"></i
+                  ></span>
+                  <input
+                    type="number"
+                    id="km"
+                    class="form-control"
+                    step="0.01"
+                    required
+                  />
+                </div>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Distância Ida (km)</label>
+                <div class="input-group">
+                  <span class="input-group-text"
+                    ><i class="fas fa-arrow-up"></i
+                  ></span>
+                  <input
+                    type="number"
+                    id="distanciaIda"
+                    class="form-control"
+                    required
+                  />
+                </div>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Distância Retorno (km)</label>
+                <div class="input-group">
+                  <span class="input-group-text"
+                    ><i class="fas fa-arrow-down"></i
+                  ></span>
+                  <input
+                    type="number"
+                    id="distanciaRetorno"
+                    class="form-control"
+                    required
+                  />
+                </div>
+              </div>
+              <!-- Adicional Noturno -->
+              <div class="col-md-12">
+                <div class="row g-3 align-items-end">
+                  <div class="col-md-4">
+                    <label class="form-label">Tipo de Adicional</label>
+                    <select id="tipoAdicional" class="form-select">
+                      <option value="fixo">Valor Fixo</option>
+                      <option value="porcentagem">Porcentagem</option>
+                    </select>
+                  </div>
+                  <div class="col-md-8">
+                    <label class="form-label">Valor do Adicional</label>
+                    <div class="input-group">
+                      <span class="input-group-text"
+                        ><i class="fas fa-moon"></i
+                      ></span>
+                      <input
+                        type="number"
+                        id="valorAdicional"
+                        class="form-control"
+                        step="0.01"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <!-- Seção de Rota -->
+              <div class="col-md-12">
+                <h5>Rota</h5>
+                <div class="row g-3">
+                  <div class="col-md-6">
+                    <label class="form-label">Origem</label>
+                    <div class="input-group">
+                      <span class="input-group-text"
+                        ><i class="fas fa-map-marker-alt"></i
+                      ></span>
+                      <input
+                        type="text"
+                        id="origem"
+                        class="form-control"
+                        placeholder="Endereço de origem"
+                      />
+                    </div>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label">Destino</label>
+                    <div class="input-group">
+                      <span class="input-group-text"
+                        ><i class="fas fa-flag-checkered"></i
+                      ></span>
+                      <input
+                        type="text"
+                        id="destino"
+                        class="form-control"
+                        placeholder="Endereço de destino"
+                      />
+                    </div>
+                  </div>
+                  <div class="col-md-12">
+                    <label class="form-label">Tipo de Rota</label>
+                    <select id="tipoRota" class="form-select">
+                      <option value="ida" selected>Somente Ida</option>
+                      <option value="idaEvolta">Ida e Volta</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+              <!-- Opções de Nota Fiscal e Pagamento -->
+              <div class="col-md-12">
+                <h5>Opções de Nota Fiscal e Pagamento</h5>
+                <div class="row g-3 align-items-center">
+                  <div class="col-md-6">
+                    <label class="form-label">
+                      <i class="fas fa-file-invoice me-2"></i>Emitir Nota
+                      Fiscal?
+                    </label>
+                    <div class="input-group">
+                      <select id="notaFiscalSelect" class="form-select">
+                        <option value="sim" selected>Sim</option>
+                        <option value="nao">Não</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label">Taxa Nota Fiscal (%)</label>
+                    <div class="input-group">
+                      <span class="input-group-text">
+                        <i class="fas fa-percent"></i>
+                      </span>
+                      <input
+                        type="number"
+                        id="taxaNotaFiscal"
+                        class="form-control"
+                        step="0.01"
+                        value="5"
+                      />
+                    </div>
+                  </div>
+                </div>
+                <div class="row g-3 mt-2">
+                  <div class="col-md-4">
+                    <label class="form-label">Taxa para Cartão (%)</label>
+                    <div class="input-group">
+                      <span class="input-group-text">
+                        <i class="fas fa-credit-card"></i>
+                      </span>
+                      <input
+                        type="number"
+                        id="taxaCartao"
+                        class="form-control"
+                        step="0.01"
+                        value="2"
+                      />
+                    </div>
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label">Desconto para PIX (%)</label>
+                    <div class="input-group">
+                      <span class="input-group-text">
+                        <i class="fas fa-mobile-alt"></i>
+                      </span>
+                      <input
+                        type="number"
+                        id="descontoPix"
+                        class="form-control"
+                        step="0.01"
+                        value="5"
+                      />
+                    </div>
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label">Desconto para Dinheiro (%)</label>
+                    <div class="input-group">
+                      <span class="input-group-text">
+                        <i class="fas fa-money-bill-wave"></i>
+                      </span>
+                      <input
+                        type="number"
+                        id="descontoDinheiro"
+                        class="form-control"
+                        step="0.01"
+                        value="10"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <!-- Botões de Ação -->
+            <div class="d-flex justify-content-between mt-4">
+              <button
+                type="button"
+                class="btn btn-outline-secondary"
+                onclick="limparCampos()"
+              >
+                <i class="fas fa-eraser me-2"></i>Limpar
+              </button>
+              <button
+                type="button"
+                class="btn btn-primary"
+                onclick="calcular()"
+              >
+                <i class="fas fa-calculator me-2"></i>Calcular
+              </button>
+            </div>
+          </div>
+          <!-- Card de Resultados -->
+          <div class="result-card card p-4 mb-4">
+            <h4 class="mb-3 text-center">Resultado do Cálculo</h4>
+            <div id="resultado">
+              <div class="text-center text-muted">
+                Preencha os dados para ver o cálculo
+              </div>
+            </div>
+            <!-- Botão para Abrir o Google Maps -->
+            <div class="d-grid mt-4">
+              <button class="btn btn-outline-light" onclick="abrirGoogleMaps()">
+                <i class="fas fa-map-marked-alt me-2"></i>Explorar Rota no
+                Google Maps
+              </button>
+            </div>
+            <!-- Botões de Compartilhamento -->
+            <div class="row mt-3">
+              <div class="col-md-6">
+                <button
+                  class="btn btn-secondary w-100"
+                  onclick="compartilharCliente()"
+                >
+                  <i class="fas fa-share-alt me-2"></i>Compartilhar para Cliente
+                </button>
+              </div>
+              <div class="col-md-6">
+                <button
+                  class="btn btn-secondary w-100"
+                  onclick="compartilharMotorista()"
+                >
+                  <i class="fas fa-share-alt me-2"></i>Compartilhar para
+                  Motorista
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Div para exibir notificações (toast) -->
+    <div id="toast"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="script.js"></script>
+  </body>
+</html>
