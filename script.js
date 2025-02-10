@@ -164,24 +164,29 @@ function consultarRota() {
 
 /**
  * Executa o cálculo dos custos do serviço (simulação de pagamento, etc).
+ * Considera o KM de Franquia dentro da taxa de saída.
  */
 function performCostCalculation() {
   const taxa = parseFloat(document.getElementById("taxa").value) || 0;
-  const km = parseFloat(document.getElementById("km").value) || 0;
+  const valorKm = parseFloat(document.getElementById("km").value) || 0;
   const kmTotal = parseFloat(document.getElementById("kmTotal").value) || 0;
-  const kmAdicionalValor =
-    parseFloat(document.getElementById("kmAdicionalValor").value) || 0;
-  const kmAdicionalQtd =
-    parseFloat(document.getElementById("kmAdicionalQtd").value) || 0;
-  const custoKmAdicional = kmAdicionalValor * kmAdicionalQtd;
+  const kmFranquia =
+    parseFloat(document.getElementById("kmFranquia").value) || 0;
 
-  let baseTotal = taxa + km * kmTotal;
+  // Cálculo do custo base considerando a franquia
+  let kmExcedente = 0;
+  if (kmTotal > kmFranquia) {
+    kmExcedente = kmTotal - kmFranquia;
+  }
+  let baseTotal = taxa + kmExcedente * valorKm;
+
+  // Adicional noturno (percentual)
   const adicionalPercent =
     parseFloat(document.getElementById("valorAdicional").value) || 0;
   const adicionalCalculado = baseTotal * (adicionalPercent / 100);
   baseTotal += adicionalCalculado;
-  baseTotal += custoKmAdicional;
 
+  // Nota Fiscal
   const notaFiscal = document.getElementById("notaFiscalSelect").value;
   let totalComNota = baseTotal;
   if (notaFiscal === "sim") {
@@ -190,6 +195,7 @@ function performCostCalculation() {
     totalComNota = baseTotal * (1 + taxaNotaFiscal / 100);
   }
 
+  // Taxas e Descontos
   const taxaCartao =
     parseFloat(document.getElementById("taxaCartao").value) || 0;
   const descontoPix =
@@ -200,92 +206,93 @@ function performCostCalculation() {
   const valorCartao = totalComNota * (1 + taxaCartao / 100);
   const valorPIX = totalComNota * (1 - descontoPix / 100);
   const valorDinheiro = totalComNota * (1 - descontoDinheiro / 100);
-
+  // Monta o HTML do resultado
   let resultadoHTML = `
-      <div class="row g-3">
-        <div class="col-6">Taxa de Saída:</div>
-        <div class="col-6 text-end">${formatarMoeda(taxa)}</div>
-        
-        <div class="col-6">KM Total:</div>
-        <div class="col-6 text-end">${kmTotal} km</div>
-        
-        <div class="col-6">Valor por KM:</div>
-        <div class="col-6 text-end">${formatarMoeda(km)}</div>
-        
-        <div class="col-6">Custo por KM (Total):</div>
-        <div class="col-6 text-end">${formatarMoeda(km * kmTotal)}</div>
-        
-        <div class="col-6">Adicional Noturno:</div>
-        <div class="col-6 text-end">${adicionalPercent}%</div>
-        
-        <div class="col-6">Valor do Adicional:</div>
-        <div class="col-6 text-end">${formatarMoeda(adicionalCalculado)}</div>
-        
-        <div class="col-6">KM Adicionais (Qtd):</div>
-        <div class="col-6 text-end">${kmAdicionalQtd} km</div>
-        
-        <div class="col-6">Valor por KM Adicional:</div>
-        <div class="col-6 text-end">${formatarMoeda(kmAdicionalValor)}</div>
-        
-        <div class="col-6">Custo KM Adicional:</div>
-        <div class="col-6 text-end">${formatarMoeda(custoKmAdicional)}</div>
-        
-        <div class="col-12 pt-2 border-top">Subtotal:</div>
-        <div class="col-12 text-end">${formatarMoeda(baseTotal)}</div>
-    `;
+    <div class="row g-3">
+      <div class="col-6">Taxa de Saída:</div>
+      <div class="col-6 text-end">${formatarMoeda(taxa)}</div>
+
+      <div class="col-6">Valor por KM:</div>
+      <div class="col-6 text-end">${formatarMoeda(valorKm)}</div>
+
+      <div class="col-6">KM de Franquia:</div>
+      <div class="col-6 text-end">${kmFranquia.toFixed(1)} km</div>
+
+      <div class="col-6">KM Total:</div>
+      <div class="col-6 text-end">${kmTotal.toFixed(1)} km</div>
+
+      <div class="col-6">KM Excedente:</div>
+      <div class="col-6 text-end">${kmExcedente.toFixed(1)} km</div>
+
+      <div class="col-6">Custo (Excedente):</div>
+      <div class="col-6 text-end">${formatarMoeda(kmExcedente * valorKm)}</div>
+
+      <div class="col-6">Adicional Noturno:</div>
+      <div class="col-6 text-end">${adicionalPercent}%</div>
+
+      <div class="col-6">Valor do Adicional:</div>
+      <div class="col-6 text-end">${formatarMoeda(adicionalCalculado)}</div>
+
+      <div class="col-12 pt-2 border-top">Subtotal:</div>
+      <div class="col-12 text-end">${formatarMoeda(baseTotal)}</div>
+  `;
+
   if (notaFiscal === "sim") {
     resultadoHTML += `
-        <div class="col-12">Taxa Nota Fiscal (${
-          document.getElementById("taxaNotaFiscal").value
-        }%):</div>
-        <div class="col-12 text-end">${formatarMoeda(totalComNota)}</div>
-      `;
+      <div class="col-12">Nota Fiscal (Taxa de ${
+        document.getElementById("taxaNotaFiscal").value
+      }%):</div>
+      <div class="col-12 text-end">${formatarMoeda(totalComNota)}</div>
+    `;
   }
+
   resultadoHTML += `
-        <div class="col-12 mt-3 pt-2 border-top">
-          <div class="d-flex justify-content-between">
-            <span class="highlight">Total:</span>
-            <span class="highlight">${formatarMoeda(totalComNota)}</span>
-          </div>
+      <div class="col-12 mt-3 pt-2 border-top">
+        <div class="d-flex justify-content-between">
+          <span class="highlight">Total:</span>
+          <span class="highlight">${formatarMoeda(totalComNota)}</span>
         </div>
       </div>
-      <div class="mt-4">
-        <h5>Simulação de Pagamento</h5>
-        <table class="table table-dark table-striped">
-          <thead>
-            <tr>
-              <th>Forma de Pagamento</th>
-              <th>Valor Final</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>Cartão</td>
-              <td>${formatarMoeda(valorCartao)}</td>
-            </tr>
-            <tr>
-              <td>PIX</td>
-              <td>${formatarMoeda(valorPIX)}</td>
-            </tr>
-            <tr>
-              <td>Dinheiro (Espécie)</td>
-              <td>${formatarMoeda(valorDinheiro)}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    `;
+    </div>
+
+    <div class="mt-4">
+      <h5>Simulação de Pagamento</h5>
+      <table class="table table-dark table-striped">
+        <thead>
+          <tr>
+            <th>Forma de Pagamento</th>
+            <th>Valor Final</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Cartão</td>
+            <td>${formatarMoeda(valorCartao)}</td>
+          </tr>
+          <tr>
+            <td>PIX</td>
+            <td>${formatarMoeda(valorPIX)}</td>
+          </tr>
+          <tr>
+            <td>Dinheiro (Espécie)</td>
+            <td>${formatarMoeda(valorDinheiro)}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  `;
+
   document.getElementById("resultado").innerHTML = resultadoHTML;
 
+  // Salva o objeto com os valores calculados em memória
   resultadoCalculado = {
     taxa,
     kmTotal,
-    custoKm: km * kmTotal,
+    kmFranquia,
+    kmExcedente,
+    valorKm,
     adicionalPercent,
     adicionalCalculado,
-    kmAdicionalQtd,
-    kmAdicionalValor,
-    custoKmAdicional,
     subtotal: baseTotal,
     total: totalComNota,
     cartao: valorCartao,
@@ -298,15 +305,13 @@ function performCostCalculation() {
     rotaLink: getRouteLink(),
   };
 
+  // Salva no Local Storage
   salvarLocalStorage();
 }
 
 /**
  * Compartilha a mensagem para o cliente via WhatsApp.
- * A mensagem inclui:
- * - Tempo para o guincho chegar (duração do primeiro trecho, se disponível)
- * - Tempo total do serviço (conforme exibido em "Tempo Estimado")
- * - Valor total e alguns detalhes.
+ * A mensagem inclui tempos e valores finais.
  */
 function compartilharCliente() {
   if (!resultadoCalculado) {
@@ -324,8 +329,6 @@ function compartilharCliente() {
   const distanciaTransporteVeiculo = leg2 ? leg2.distance.text : "N/A";
 
   const kmTotal = document.getElementById("kmTotal").value || "N/A";
-  const kmAdicionalValor =
-    parseFloat(document.getElementById("kmAdicionalValor").value) || 0;
 
   const pagamentoCartao = formatarMoeda(resultadoCalculado.cartao);
   const pagamentoPIX = formatarMoeda(resultadoCalculado.pix);
@@ -337,11 +340,7 @@ function compartilharCliente() {
 • Tempo estimado para o guincho chegar até você: ${tempoGuinchoAteCliente} (distância: ${distanciaGuinchoAteCliente})
 • Tempo estimado para transportar seu veículo até o destino: ${tempoTransporteVeiculo} (distância: ${distanciaTransporteVeiculo})
 • Total de KM percorridos: ${kmTotal} km
-${
-  kmAdicionalValor > 0
-    ? "• Valor do KM adicional: R$ " + kmAdicionalValor.toFixed(2) + "\n"
-    : ""
-}
+
 Opções de Pagamento:
    - Cartão: ${pagamentoCartao}
    - PIX: ${pagamentoPIX}
@@ -364,6 +363,9 @@ Agradecemos a sua preferência!`;
     });
 }
 
+/**
+ * Compartilha uma mensagem para o motorista via WhatsApp, com detalhes de cada trecho.
+ */
 function compartilharMotorista() {
   if (!resultadoCalculado) {
     showToast("Realize o cálculo antes de compartilhar.");
@@ -431,6 +433,7 @@ function limparCampos() {
   localStorage.removeItem("ultimoCalculo");
   resultadoCalculado = null;
   ultimoLegs = null;
+  document.getElementById("mapCard").style.display = "none";
 }
 
 /**
@@ -450,9 +453,8 @@ function salvarLocalStorage() {
     taxa: document.getElementById("taxa").value,
     km: document.getElementById("km").value,
     kmTotal: document.getElementById("kmTotal").value,
+    kmFranquia: document.getElementById("kmFranquia").value,
     valorAdicional: document.getElementById("valorAdicional").value,
-    kmAdicionalValor: document.getElementById("kmAdicionalValor").value,
-    kmAdicionalQtd: document.getElementById("kmAdicionalQtd").value,
     localGuincho: document.getElementById("localGuincho").value,
     localCliente: document.getElementById("localCliente").value,
     localEntrega: document.getElementById("localEntrega").value,
@@ -535,3 +537,4 @@ window.consultarRota = consultarRota;
 window.abrirGoogleMaps = abrirGoogleMaps;
 window.limparCampos = limparCampos;
 window.compartilharCliente = compartilharCliente;
+window.compartilharMotorista = compartilharMotorista;
