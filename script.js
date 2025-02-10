@@ -1,8 +1,20 @@
-// Variável global para armazenar o último resultado calculado
+// script.js
+
+// Chave de API do Google Maps (a mesma usada no HTML)
+const GOOGLE_MAPS_API_KEY = "AIzaSyCo6sflpepPLQznadxAQ6-leTdEmMd8-0o";
+
+// Variáveis globais para o mapa, Directions Service e Directions Renderer
+let map;
+let directionsService;
+let directionsRenderer;
+
+// Variáveis para armazenar o resultado da consulta e os "legs" retornados
 let resultadoCalculado = null;
+let ultimoLegs = null;
 
 /**
  * Formata um valor numérico para o padrão de moeda BRL.
+ * Exemplo: 150 → "R$ 150,00"
  * @param {number} valor
  * @returns {string}
  */
@@ -14,35 +26,36 @@ function formatarMoeda(valor) {
 }
 
 /**
- * Retorna a URL para a rota no Google Maps com base nos dados informados.
- * Considera o tipo de rota (somente ida ou ida e volta).
+ * Retorna a URL para a rota no Google Maps, com base nos valores dos inputs.
  * @returns {string|null}
  */
 function getRouteLink() {
-  const origem = document.getElementById("origem").value.trim();
-  const destino = document.getElementById("destino").value.trim();
-  const tipoRota = document.getElementById("tipoRota").value;
-  if (origem && destino) {
-    const origemEncoded = encodeURIComponent(origem);
-    const destinoEncoded = encodeURIComponent(destino);
-    if (tipoRota === "ida") {
-      return `https://www.google.com/maps/dir/?api=1&origin=${origemEncoded}&destination=${destinoEncoded}&travelmode=driving`;
-    } else if (tipoRota === "idaEvolta") {
-      return `https://www.google.com/maps/dir/?api=1&origin=${origemEncoded}&destination=${origemEncoded}&waypoints=${destinoEncoded}&travelmode=driving`;
-    }
+  const localGuincho = document.getElementById("localGuincho").value.trim();
+  const localCliente = document.getElementById("localCliente").value.trim();
+  const localEntrega = document.getElementById("localEntrega").value.trim();
+  const localRetorno = document.getElementById("localRetorno").value.trim();
+  if (localGuincho && localCliente && localEntrega && localRetorno) {
+    const origin = encodeURIComponent(localGuincho);
+    const destination = encodeURIComponent(localRetorno);
+    const waypoints =
+      encodeURIComponent(localCliente) + "|" + encodeURIComponent(localEntrega);
+    return `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&waypoints=${waypoints}&travelmode=driving`;
+  } else {
+    showToast("Preencha todos os campos de Detalhes de Rota.");
+    return null;
   }
-  return null;
 }
 
 /**
- * Utiliza a API do TinyURL para encurtar o link passado.
- * @param {string} url
- * @returns {Promise<string>}
+ * Abre o link da rota no Google Maps em uma nova aba.
  */
-function shortenUrl(url) {
-  return fetch(
-    "https://tinyurl.com/api-create.php?url=" + encodeURIComponent(url)
-  ).then((response) => response.text());
+function abrirGoogleMaps() {
+  const link = getRouteLink();
+  if (link) {
+    window.open(link, "_blank");
+  } else {
+    mostrarErro("Preencha os campos de Detalhes de Rota para explorar a rota.");
+  }
 }
 
 /**
@@ -59,92 +72,176 @@ function showToast(mensagem) {
 }
 
 /**
- * Realiza os cálculos e exibe o resultado, incluindo a simulação de pagamento.
+ * Inicializa o mapa, Directions Service e Directions Renderer.
  */
-function calcular() {
-  try {
-    // Obter valores dos inputs
-    const taxa = parseFloat(document.getElementById("taxa").value) || 0;
-    const km = parseFloat(document.getElementById("km").value) || 0;
-    const distanciaIda =
-      parseFloat(document.getElementById("distanciaIda").value) || 0;
-    const distanciaRetorno =
-      parseFloat(document.getElementById("distanciaRetorno").value) || 0;
-    const tipo = document.getElementById("tipoAdicional").value;
-    const adicional =
-      parseFloat(document.getElementById("valorAdicional").value) || 0;
-    const distanciaTotal = distanciaIda + distanciaRetorno;
+function initMap() {
+  map = new google.maps.Map(document.getElementById("map"), {
+    center: { lat: -23.55052, lng: -46.633308 },
+    zoom: 12,
+  });
+  directionsService = new google.maps.DirectionsService();
+  directionsRenderer = new google.maps.DirectionsRenderer();
+  directionsRenderer.setMap(map);
+}
 
-    // Cálculo do subtotal (sem Nota Fiscal)
-    let baseTotal = taxa + km * distanciaTotal;
-    let adicionalCalculado = 0;
-    if (tipo === "porcentagem") {
-      adicionalCalculado = baseTotal * (adicional / 100);
-      baseTotal += adicionalCalculado;
+/**
+ * Calcula a rota utilizando o Directions Service.
+ * Atualiza os campos "KM Total" e "Tempo Estimado" e exibe o mapa.
+ * Armazena o array de "legs" na variável global "ultimoLegs".
+ * @param {function} callback - Função opcional a ser chamada após o cálculo.
+ */
+function calcularRota(callback) {
+  const localGuincho = document.getElementById("localGuincho").value.trim();
+  const localCliente = document.getElementById("localCliente").value.trim();
+  const localEntrega = document.getElementById("localEntrega").value.trim();
+  const localRetorno = document.getElementById("localRetorno").value.trim();
+
+  if (!localGuincho || !localCliente || !localEntrega || !localRetorno) {
+    showToast("Preencha todos os campos de Detalhes de Rota.");
+    console.error("Erro: Nem todos os endereços foram informados.");
+    if (callback) callback(null);
+    return;
+  }
+
+  const request = {
+    origin: localGuincho,
+    destination: localRetorno,
+    waypoints: [
+      { location: localCliente, stopover: true },
+      { location: localEntrega, stopover: true },
+    ],
+    travelMode: google.maps.TravelMode.DRIVING,
+  };
+
+  console.log("Directions Request:", request);
+
+  directionsService.route(request, (result, status) => {
+    console.log("Directions Service status:", status);
+    console.log("Directions Service result:", result);
+
+    if (status === google.maps.DirectionsStatus.OK) {
+      directionsRenderer.setDirections(result);
+      document.getElementById("mapCard").style.display = "block";
+
+      // Armazena os legs para uso no compartilhamento
+      ultimoLegs = result.routes[0].legs;
+
+      // Soma a distância e a duração de cada trecho
+      let totalDistance = 0; // em metros
+      let totalDuration = 0; // em segundos
+      ultimoLegs.forEach((leg) => {
+        totalDistance += leg.distance.value;
+        totalDuration += leg.duration.value;
+      });
+      const km = (totalDistance / 1000).toFixed(1);
+      const hours = Math.floor(totalDuration / 3600);
+      const minutes = Math.floor((totalDuration % 3600) / 60);
+      const durationStr = (hours > 0 ? hours + " h " : "") + minutes + " min";
+
+      document.getElementById("kmTotal").value = km;
+      document.getElementById("tempoEstimado").value = durationStr;
+      showToast("Distância: " + km + " km | Tempo: " + durationStr);
+
+      if (callback) callback({ km: km, duration: totalDuration });
     } else {
-      adicionalCalculado = adicional;
-      baseTotal += adicional;
+      showToast("Erro ao calcular a rota: " + status);
+      console.error("Directions request returned no results:", status);
+      if (callback) callback(null);
     }
+  });
+}
 
-    // Verifica se foi selecionada a emissão de Nota Fiscal via dropdown
-    const notaFiscal = document.getElementById("notaFiscalSelect").value; // "sim" ou "nao"
-    let totalComNota = baseTotal;
-    if (notaFiscal === "sim") {
-      const taxaNotaFiscal =
-        parseFloat(document.getElementById("taxaNotaFiscal").value) || 0;
-      totalComNota = baseTotal * (1 + taxaNotaFiscal / 100);
-    }
+/**
+ * Função chamada ao clicar no botão "Consultar Rota".
+ * Realiza a consulta à API, atualiza os cálculos e exibe o mapa.
+ */
+function consultarRota() {
+  calcularRota(function () {
+    performCostCalculation();
+    // Não sobrescrevemos os inputs de endereço para manter o que o usuário digitou.
+  });
+}
 
-    // Simulação para as formas de pagamento
-    const taxaCartao =
-      parseFloat(document.getElementById("taxaCartao").value) || 0;
-    const descontoPix =
-      parseFloat(document.getElementById("descontoPix").value) || 0;
-    const descontoDinheiro =
-      parseFloat(document.getElementById("descontoDinheiro").value) || 0;
+/**
+ * Executa o cálculo dos custos do serviço (simulação de pagamento, etc).
+ */
+function performCostCalculation() {
+  const taxa = parseFloat(document.getElementById("taxa").value) || 0;
+  const km = parseFloat(document.getElementById("km").value) || 0;
+  const kmTotal = parseFloat(document.getElementById("kmTotal").value) || 0;
+  const kmAdicionalValor =
+    parseFloat(document.getElementById("kmAdicionalValor").value) || 0;
+  const kmAdicionalQtd =
+    parseFloat(document.getElementById("kmAdicionalQtd").value) || 0;
+  const custoKmAdicional = kmAdicionalValor * kmAdicionalQtd;
 
-    const valorCartao = totalComNota * (1 + taxaCartao / 100);
-    const valorPIX = totalComNota * (1 - descontoPix / 100);
-    const valorDinheiro = totalComNota * (1 - descontoDinheiro / 100);
+  let baseTotal = taxa + km * kmTotal;
+  const adicionalPercent =
+    parseFloat(document.getElementById("valorAdicional").value) || 0;
+  const adicionalCalculado = baseTotal * (adicionalPercent / 100);
+  baseTotal += adicionalCalculado;
+  baseTotal += custoKmAdicional;
 
-    // Monta o HTML do resultado com informações adicionais
-    let resultadoHTML = `
+  const notaFiscal = document.getElementById("notaFiscalSelect").value;
+  let totalComNota = baseTotal;
+  if (notaFiscal === "sim") {
+    const taxaNotaFiscal =
+      parseFloat(document.getElementById("taxaNotaFiscal").value) || 0;
+    totalComNota = baseTotal * (1 + taxaNotaFiscal / 100);
+  }
+
+  const taxaCartao =
+    parseFloat(document.getElementById("taxaCartao").value) || 0;
+  const descontoPix =
+    parseFloat(document.getElementById("descontoPix").value) || 0;
+  const descontoDinheiro =
+    parseFloat(document.getElementById("descontoDinheiro").value) || 0;
+
+  const valorCartao = totalComNota * (1 + taxaCartao / 100);
+  const valorPIX = totalComNota * (1 - descontoPix / 100);
+  const valorDinheiro = totalComNota * (1 - descontoDinheiro / 100);
+
+  let resultadoHTML = `
       <div class="row g-3">
         <div class="col-6">Taxa de Saída:</div>
         <div class="col-6 text-end">${formatarMoeda(taxa)}</div>
         
-        <div class="col-6">KM de Ida:</div>
-        <div class="col-6 text-end">${distanciaIda} km</div>
-        
-        <div class="col-6">KM de Retorno:</div>
-        <div class="col-6 text-end">${distanciaRetorno} km</div>
+        <div class="col-6">KM Total:</div>
+        <div class="col-6 text-end">${kmTotal} km</div>
         
         <div class="col-6">Valor por KM:</div>
         <div class="col-6 text-end">${formatarMoeda(km)}</div>
         
         <div class="col-6">Custo por KM (Total):</div>
-        <div class="col-6 text-end">${formatarMoeda(km * distanciaTotal)}</div>
+        <div class="col-6 text-end">${formatarMoeda(km * kmTotal)}</div>
         
         <div class="col-6">Adicional Noturno:</div>
-        <div class="col-6 text-end">${
-          tipo === "porcentagem" ? adicional + "%" : formatarMoeda(adicional)
-        }</div>
+        <div class="col-6 text-end">${adicionalPercent}%</div>
         
         <div class="col-6">Valor do Adicional:</div>
         <div class="col-6 text-end">${formatarMoeda(adicionalCalculado)}</div>
         
+        <div class="col-6">KM Adicionais (Qtd):</div>
+        <div class="col-6 text-end">${kmAdicionalQtd} km</div>
+        
+        <div class="col-6">Valor por KM Adicional:</div>
+        <div class="col-6 text-end">${formatarMoeda(kmAdicionalValor)}</div>
+        
+        <div class="col-6">Custo KM Adicional:</div>
+        <div class="col-6 text-end">${formatarMoeda(custoKmAdicional)}</div>
+        
         <div class="col-12 pt-2 border-top">Subtotal:</div>
         <div class="col-12 text-end">${formatarMoeda(baseTotal)}</div>
     `;
-    if (notaFiscal === "sim") {
-      resultadoHTML += `
+  if (notaFiscal === "sim") {
+    resultadoHTML += `
         <div class="col-12">Taxa Nota Fiscal (${
           document.getElementById("taxaNotaFiscal").value
         }%):</div>
         <div class="col-12 text-end">${formatarMoeda(totalComNota)}</div>
       `;
-    }
-    resultadoHTML += `
+  }
+  resultadoHTML += `
         <div class="col-12 mt-3 pt-2 border-top">
           <div class="d-flex justify-content-between">
             <span class="highlight">Total:</span>
@@ -178,163 +275,162 @@ function calcular() {
         </table>
       </div>
     `;
+  document.getElementById("resultado").innerHTML = resultadoHTML;
 
-    document.getElementById("resultado").innerHTML = resultadoHTML;
+  resultadoCalculado = {
+    taxa,
+    kmTotal,
+    custoKm: km * kmTotal,
+    adicionalPercent,
+    adicionalCalculado,
+    kmAdicionalQtd,
+    kmAdicionalValor,
+    custoKmAdicional,
+    subtotal: baseTotal,
+    total: totalComNota,
+    cartao: valorCartao,
+    pix: valorPIX,
+    dinheiro: valorDinheiro,
+    localGuincho: document.getElementById("localGuincho").value.trim(),
+    localCliente: document.getElementById("localCliente").value.trim(),
+    localEntrega: document.getElementById("localEntrega").value.trim(),
+    localRetorno: document.getElementById("localRetorno").value.trim(),
+    rotaLink: getRouteLink(),
+  };
 
-    // Armazena os dados do último cálculo para uso no compartilhamento
-    resultadoCalculado = {
-      taxa: taxa,
-      kmIda: distanciaIda,
-      kmRetorno: distanciaRetorno,
-      custoKm: km * distanciaTotal,
-      adicional:
-        tipo === "porcentagem" ? adicional + "%" : formatarMoeda(adicional),
-      adicionalCalculado: adicionalCalculado,
-      subtotal: baseTotal,
-      total: totalComNota,
-      cartao: valorCartao,
-      pix: valorPIX,
-      dinheiro: valorDinheiro,
-      origem: document.getElementById("origem").value.trim(),
-      destino: document.getElementById("destino").value.trim(),
-      tipoRota: document.getElementById("tipoRota").value,
-      rotaLink: getRouteLink(),
-    };
-
-    salvarLocalStorage();
-  } catch (error) {
-    mostrarErro("Erro nos valores informados! Verifique os campos.");
-  }
+  salvarLocalStorage();
 }
 
 /**
- * Abre o Google Maps em uma nova aba com as direções de acordo com o tipo de rota selecionado.
+ * Compartilha a mensagem para o cliente via WhatsApp.
+ * A mensagem inclui:
+ * - Tempo para o guincho chegar (duração do primeiro trecho, se disponível)
+ * - Tempo total do serviço (conforme exibido em "Tempo Estimado")
+ * - Valor total e alguns detalhes.
  */
-function abrirGoogleMaps() {
-  const link = getRouteLink();
-  if (link) {
-    window.open(link, "_blank");
-  } else {
-    mostrarErro(
-      "Informe os endereços de origem e destino para explorar a rota."
-    );
-  }
-}
-
-/**
- * Compartilha os detalhes completos (para o cliente) utilizando marcadores do WhatsApp.
- * A mensagem inclui os KM de ida e de retorno, além de um link encurtado da rota.
- */
-async function compartilharCliente() {
+function compartilharCliente() {
   if (!resultadoCalculado) {
-    mostrarErro("Realize o cálculo antes de compartilhar.");
+    showToast("Realize o cálculo antes de compartilhar.");
     return;
   }
-  let linkOriginal = resultadoCalculado.rotaLink;
-  let shortUrl = linkOriginal;
-  try {
-    shortUrl = await shortenUrl(linkOriginal);
-  } catch (error) {
-    shortUrl = linkOriginal;
-  }
-  let mensagem =
-    `*Detalhes do Serviço de Guincho*\n\n` +
-    `*Taxa de Saída:* ${formatarMoeda(resultadoCalculado.taxa)}\n` +
-    `*KM de Ida:* ${resultadoCalculado.kmIda} km\n` +
-    `*KM de Retorno:* ${resultadoCalculado.kmRetorno} km\n` +
-    `*Valor por KM:* ${formatarMoeda(
-      resultadoCalculado.custoKm /
-        (resultadoCalculado.kmIda + resultadoCalculado.kmRetorno)
-    )}\n` +
-    `*Custo Total por KM:* ${formatarMoeda(resultadoCalculado.custoKm)}\n` +
-    `*Adicional Noturno:* ${resultadoCalculado.adicional}\n` +
-    `*Valor do Adicional:* ${formatarMoeda(
-      resultadoCalculado.adicionalCalculado
-    )}\n` +
-    `*Subtotal:* ${formatarMoeda(resultadoCalculado.subtotal)}\n`;
 
-  if (document.getElementById("notaFiscalSelect").value === "sim") {
-    mensagem += `*Nota Fiscal:* Sim (Taxa: ${
-      document.getElementById("taxaNotaFiscal").value
-    }%)\n`;
-  } else {
-    mensagem += `*Nota Fiscal:* Não\n`;
-  }
+  // Recupera os dados dos trechos da rota
+  const leg1 = ultimoLegs && ultimoLegs.length > 0 ? ultimoLegs[0] : null; // Guincho → Cliente
+  const leg2 = ultimoLegs && ultimoLegs.length > 1 ? ultimoLegs[1] : null; // Cliente → Destino
 
-  mensagem +=
-    `*Total:* ${formatarMoeda(resultadoCalculado.total)}\n\n` +
-    `*Simulação de Pagamento:*\n` +
-    `- Cartão: ${formatarMoeda(resultadoCalculado.cartao)}\n` +
-    `- PIX: ${formatarMoeda(resultadoCalculado.pix)}\n` +
-    `- Dinheiro: ${formatarMoeda(resultadoCalculado.dinheiro)}\n\n` +
-    `*Rota:*\n` +
-    `Origem: ${resultadoCalculado.origem}\n` +
-    `Destino: ${resultadoCalculado.destino}\n` +
-    `Link: ${shortUrl}`;
+  const tempoGuinchoAteCliente = leg1 ? leg1.duration.text : "N/A";
+  const distanciaGuinchoAteCliente = leg1 ? leg1.distance.text : "N/A";
+  const tempoTransporteVeiculo = leg2 ? leg2.duration.text : "N/A";
+  const distanciaTransporteVeiculo = leg2 ? leg2.distance.text : "N/A";
 
+  const kmTotal = document.getElementById("kmTotal").value || "N/A";
+  const kmAdicionalValor =
+    parseFloat(document.getElementById("kmAdicionalValor").value) || 0;
+
+  const pagamentoCartao = formatarMoeda(resultadoCalculado.cartao);
+  const pagamentoPIX = formatarMoeda(resultadoCalculado.pix);
+  const pagamentoDinheiro = formatarMoeda(resultadoCalculado.dinheiro);
+
+  // Monta a mensagem personalizada para o cliente
+  const mensagemCliente = `Olá, segue as informações do seu serviço de guincho:
+
+• Tempo estimado para o guincho chegar até você: ${tempoGuinchoAteCliente} (distância: ${distanciaGuinchoAteCliente})
+• Tempo estimado para transportar seu veículo até o destino: ${tempoTransporteVeiculo} (distância: ${distanciaTransporteVeiculo})
+• Total de KM percorridos: ${kmTotal} km
+${
+  kmAdicionalValor > 0
+    ? "• Valor do KM adicional: R$ " + kmAdicionalValor.toFixed(2) + "\n"
+    : ""
+}
+Opções de Pagamento:
+   - Cartão: ${pagamentoCartao}
+   - PIX: ${pagamentoPIX}
+   - Espécie: ${pagamentoDinheiro}
+
+Agradecemos a sua preferência!`;
+
+  // Copia a mensagem para o clipboard e abre o WhatsApp
   navigator.clipboard
-    .writeText(mensagem)
+    .writeText(mensagemCliente)
     .then(() => {
-      showToast(
-        "Mensagem para o cliente copiada para a área de transferência!"
-      );
+      showToast("Mensagem copiada para o clipboard!");
+      const urlWhats =
+        "https://wa.me/?text=" + encodeURIComponent(mensagemCliente);
+      window.open(urlWhats, "_blank");
     })
-    .catch(() => {
-      showToast("Falha ao copiar a mensagem.");
+    .catch((err) => {
+      console.error("Erro ao copiar para o clipboard: ", err);
+      showToast("Erro ao copiar a mensagem.");
+    });
+}
+
+function compartilharMotorista() {
+  if (!resultadoCalculado) {
+    showToast("Realize o cálculo antes de compartilhar.");
+    return;
+  }
+
+  // Recupera os endereços informados
+  const localGuincho = resultadoCalculado.localGuincho || "N/A";
+  const localCliente = resultadoCalculado.localCliente || "N/A";
+  const localEntrega = resultadoCalculado.localEntrega || "N/A";
+  const localRetorno = resultadoCalculado.localRetorno || "N/A";
+  const kmTotal = document.getElementById("kmTotal").value || "N/A";
+  const rotaLink = resultadoCalculado.rotaLink || "Link não disponível";
+
+  // Obtém os detalhes de cada trecho, se disponíveis
+  const leg1 = ultimoLegs && ultimoLegs.length > 0 ? ultimoLegs[0] : null;
+  const leg2 = ultimoLegs && ultimoLegs.length > 1 ? ultimoLegs[1] : null;
+  const leg3 = ultimoLegs && ultimoLegs.length > 2 ? ultimoLegs[2] : null;
+
+  const mensagemMotorista = `Informações para o Motorista:
+
+Rota:
+- Ponto de partida: ${localGuincho}
+- Até o cliente: ${localCliente}
+  Tempo: ${leg1 ? leg1.duration.text : "N/A"}, Distância: ${
+    leg1 ? leg1.distance.text : "N/A"
+  }
+- Até o ponto de entrega: ${localEntrega}
+  Tempo: ${leg2 ? leg2.duration.text : "N/A"}, Distância: ${
+    leg2 ? leg2.distance.text : "N/A"
+  }
+- Até o retorno: ${localRetorno}
+  Tempo: ${leg3 ? leg3.duration.text : "N/A"}, Distância: ${
+    leg3 ? leg3.distance.text : "N/A"
+  }
+
+Total de KM percorridos: ${kmTotal} km
+
+Link da rota: ${rotaLink}`;
+
+  // Copia a mensagem para o clipboard e abre o WhatsApp
+  navigator.clipboard
+    .writeText(mensagemMotorista)
+    .then(() => {
+      showToast("Mensagem copiada para o clipboard!");
+      const urlWhats =
+        "https://wa.me/?text=" + encodeURIComponent(mensagemMotorista);
+      window.open(urlWhats, "_blank");
+    })
+    .catch((err) => {
+      console.error("Erro ao copiar para o clipboard: ", err);
+      showToast("Erro ao copiar a mensagem.");
     });
 }
 
 /**
- * Compartilha os detalhes da rota (para o motorista), sem os valores.
- * A mensagem inclui os KM de ida e de retorno, além de um link encurtado da rota.
- */
-async function compartilharMotorista() {
-  if (!resultadoCalculado) {
-    mostrarErro("Realize o cálculo antes de compartilhar.");
-    return;
-  }
-  let linkOriginal = resultadoCalculado.rotaLink;
-  let shortUrl = linkOriginal;
-  try {
-    shortUrl = await shortenUrl(linkOriginal);
-  } catch (error) {
-    shortUrl = linkOriginal;
-  }
-  let mensagem =
-    `*Detalhes da Rota para Guincho*\n\n` +
-    `*Origem:* ${resultadoCalculado.origem}\n` +
-    `*Destino:* ${resultadoCalculado.destino}\n` +
-    `*KM de Ida:* ${resultadoCalculado.kmIda} km\n` +
-    `*KM de Retorno:* ${resultadoCalculado.kmRetorno} km\n` +
-    `*Tipo de Rota:* ${
-      resultadoCalculado.tipoRota === "ida" ? "Somente Ida" : "Ida e Volta"
-    }\n` +
-    `Link: ${shortUrl}`;
-
-  navigator.clipboard
-    .writeText(mensagem)
-    .then(() => {
-      showToast(
-        "Mensagem para o motorista copiada para a área de transferência!"
-      );
-    })
-    .catch(() => {
-      showToast("Falha ao copiar a mensagem.");
-    });
-}
-
-/**
- * Limpa todos os campos, o resultado exibido e o armazenamento local.
+ * Limpa os inputs, o resultado e remove os dados do Local Storage.
  */
 function limparCampos() {
   document.querySelectorAll("input").forEach((input) => (input.value = ""));
-  // Reseta o dropdown de Nota Fiscal para o padrão "Sim"
   document.getElementById("notaFiscalSelect").value = "sim";
   document.getElementById("taxaNotaFiscal").disabled = false;
   document.getElementById("resultado").innerHTML =
     '<div class="text-center text-muted">Preencha os dados para ver o cálculo</div>';
   localStorage.removeItem("ultimoCalculo");
   resultadoCalculado = null;
+  ultimoLegs = null;
 }
 
 /**
@@ -353,13 +449,14 @@ function salvarLocalStorage() {
   const dados = {
     taxa: document.getElementById("taxa").value,
     km: document.getElementById("km").value,
-    distanciaIda: document.getElementById("distanciaIda").value,
-    distanciaRetorno: document.getElementById("distanciaRetorno").value,
-    tipoAdicional: document.getElementById("tipoAdicional").value,
+    kmTotal: document.getElementById("kmTotal").value,
     valorAdicional: document.getElementById("valorAdicional").value,
-    origem: document.getElementById("origem").value,
-    destino: document.getElementById("destino").value,
-    tipoRota: document.getElementById("tipoRota").value,
+    kmAdicionalValor: document.getElementById("kmAdicionalValor").value,
+    kmAdicionalQtd: document.getElementById("kmAdicionalQtd").value,
+    localGuincho: document.getElementById("localGuincho").value,
+    localCliente: document.getElementById("localCliente").value,
+    localEntrega: document.getElementById("localEntrega").value,
+    localRetorno: document.getElementById("localRetorno").value,
     notaFiscalSelect: document.getElementById("notaFiscalSelect").value,
     taxaNotaFiscal: document.getElementById("taxaNotaFiscal").value,
     taxaCartao: document.getElementById("taxaCartao").value,
@@ -369,10 +466,57 @@ function salvarLocalStorage() {
   localStorage.setItem("ultimoCalculo", JSON.stringify(dados));
 }
 
-/**
- * Carrega os dados salvos no Local Storage ao iniciar.
- */
-window.onload = function () {
+// ========================
+// Event listeners apenas para formatação dos inputs
+// ========================
+
+// Para inputs numéricos (não monetários)
+document
+  .querySelectorAll('input[type="number"]:not(.money)')
+  .forEach((input) => {
+    input.addEventListener("keypress", function (e) {
+      let char = String.fromCharCode(e.which);
+      if (!/[0-9.]/.test(char)) {
+        e.preventDefault();
+      }
+      if (char === "." && this.value.includes(".")) {
+        e.preventDefault();
+      }
+    });
+    input.addEventListener("input", function (e) {
+      this.value = this.value.replace(/[^0-9.]/g, "");
+    });
+  });
+
+// Para inputs monetários: interpreta o valor digitado como centavos e atualiza em tempo real.
+// Exemplo: digitar "15000" fica "150.00".
+document.querySelectorAll(".money").forEach((input) => {
+  input.addEventListener("input", function (e) {
+    let digits = this.value.replace(/\D/g, "");
+    if (digits === "") {
+      this.value = "";
+      return;
+    }
+    let numberValue = parseInt(digits, 10) / 100;
+    this.value = numberValue.toFixed(2);
+  });
+  input.addEventListener("blur", function (e) {
+    if (this.value !== "") {
+      let digits = this.value.replace(/\D/g, "");
+      if (digits === "") {
+        this.value = "";
+        return;
+      }
+      let numberValue = parseInt(digits, 10) / 100;
+      this.value = numberValue.toFixed(2);
+    }
+  });
+});
+
+// ========================
+// Ao carregar a página: carrega dados salvos (se houver)
+// ========================
+window.addEventListener("load", function () {
   const dadosSalvos = localStorage.getItem("ultimoCalculo");
   if (dadosSalvos) {
     const dados = JSON.parse(dadosSalvos);
@@ -383,4 +527,11 @@ window.onload = function () {
       }
     });
   }
-};
+});
+
+// Expondo funções para o escopo global (para que o HTML e a API do Google Maps as encontrem)
+window.initMap = initMap;
+window.consultarRota = consultarRota;
+window.abrirGoogleMaps = abrirGoogleMaps;
+window.limparCampos = limparCampos;
+window.compartilharCliente = compartilharCliente;

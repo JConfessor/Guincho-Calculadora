@@ -13,6 +13,24 @@
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
     />
     <link rel="stylesheet" href="style.css" />
+    <style>
+      /* O card do mapa é oculto até que a rota seja calculada */
+      #mapCard {
+        display: none;
+      }
+      /* Estilo do toast */
+      #toast {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        background: #333;
+        color: #fff;
+        padding: 10px 20px;
+        border-radius: 5px;
+        opacity: 0;
+        transition: opacity 0.5s;
+      }
+    </style>
   </head>
   <body class="d-flex align-items-center">
     <div class="container py-5">
@@ -28,13 +46,11 @@
               <div class="col-md-6">
                 <label class="form-label">Taxa de Saída (R$)</label>
                 <div class="input-group">
-                  <span class="input-group-text"
-                    ><i class="fas fa-dollar-sign"></i
-                  ></span>
+                  <span class="input-group-text">R$</span>
                   <input
                     type="number"
                     id="taxa"
-                    class="form-control"
+                    class="form-control money"
                     step="0.01"
                     required
                   />
@@ -43,110 +59,165 @@
               <div class="col-md-6">
                 <label class="form-label">Valor por KM (R$)</label>
                 <div class="input-group">
-                  <span class="input-group-text"
-                    ><i class="fas fa-road"></i
-                  ></span>
+                  <span class="input-group-text">R$</span>
                   <input
                     type="number"
                     id="km"
-                    class="form-control"
+                    class="form-control money"
                     step="0.01"
                     required
                   />
                 </div>
               </div>
+              <!-- KM Total e Tempo Estimado -->
               <div class="col-md-6">
-                <label class="form-label">Distância Ida (km)</label>
+                <label class="form-label">KM Total (km)</label>
                 <div class="input-group">
                   <span class="input-group-text"
-                    ><i class="fas fa-arrow-up"></i
+                    ><i class="fas fa-tachometer-alt"></i
                   ></span>
                   <input
                     type="number"
-                    id="distanciaIda"
+                    id="kmTotal"
                     class="form-control"
-                    required
+                    step="0.1"
+                    readonly
                   />
                 </div>
               </div>
               <div class="col-md-6">
-                <label class="form-label">Distância Retorno (km)</label>
+                <label class="form-label">Tempo Estimado</label>
                 <div class="input-group">
                   <span class="input-group-text"
-                    ><i class="fas fa-arrow-down"></i
+                    ><i class="fas fa-clock"></i
                   ></span>
                   <input
-                    type="number"
-                    id="distanciaRetorno"
+                    type="text"
+                    id="tempoEstimado"
                     class="form-control"
-                    required
+                    readonly
                   />
                 </div>
               </div>
-              <!-- Adicional Noturno -->
-              <div class="col-md-12">
-                <div class="row g-3 align-items-end">
-                  <div class="col-md-4">
-                    <label class="form-label">Tipo de Adicional</label>
-                    <select id="tipoAdicional" class="form-select">
-                      <option value="fixo">Valor Fixo</option>
-                      <option value="porcentagem">Porcentagem</option>
-                    </select>
-                  </div>
-                  <div class="col-md-8">
-                    <label class="form-label">Valor do Adicional</label>
-                    <div class="input-group">
-                      <span class="input-group-text"
-                        ><i class="fas fa-moon"></i
-                      ></span>
-                      <input
-                        type="number"
-                        id="valorAdicional"
-                        class="form-control"
-                        step="0.01"
-                      />
-                    </div>
-                  </div>
+              <!-- Campos para KM Adicional -->
+              <div class="col-md-6">
+                <label class="form-label">Valor do KM Adicional (R$)</label>
+                <div class="input-group">
+                  <span class="input-group-text">R$</span>
+                  <input
+                    type="number"
+                    id="kmAdicionalValor"
+                    class="form-control money"
+                    step="0.01"
+                  />
                 </div>
               </div>
-              <!-- Seção de Rota -->
+              <div class="col-md-6">
+                <label class="form-label">Quantidade de KM Adicionais</label>
+                <div class="input-group">
+                  <span class="input-group-text"
+                    ><i class="fas fa-tachometer-alt"></i
+                  ></span>
+                  <input
+                    type="number"
+                    id="kmAdicionalQtd"
+                    class="form-control"
+                  />
+                </div>
+              </div>
+              <!-- Adicional Noturno em % -->
+              <div class="col-md-6">
+                <label class="form-label">Adicional Noturno (%)</label>
+                <div class="input-group">
+                  <span class="input-group-text"
+                    ><i class="fas fa-moon"></i
+                  ></span>
+                  <input
+                    type="number"
+                    id="valorAdicional"
+                    class="form-control"
+                    step="0.01"
+                    placeholder="Informe a porcentagem"
+                  />
+                  <span class="input-group-text">%</span>
+                </div>
+              </div>
+              <!-- Detalhes de Rota -->
               <div class="col-md-12">
-                <h5>Rota</h5>
+                <h5>Detalhes de Rota</h5>
                 <div class="row g-3">
                   <div class="col-md-6">
-                    <label class="form-label">Origem</label>
+                    <label class="form-label">Local do Guincho</label>
                     <div class="input-group">
                       <span class="input-group-text"
-                        ><i class="fas fa-map-marker-alt"></i
+                        ><i class="fas fa-truck"></i
                       ></span>
                       <input
                         type="text"
-                        id="origem"
+                        id="localGuincho"
                         class="form-control"
-                        placeholder="Endereço de origem"
+                        placeholder="Ex.: Radar Escolta, Santa Maria, RN, Brasil"
                       />
                     </div>
                   </div>
                   <div class="col-md-6">
-                    <label class="form-label">Destino</label>
+                    <label class="form-label">Local do Cliente</label>
                     <div class="input-group">
                       <span class="input-group-text"
-                        ><i class="fas fa-flag-checkered"></i
+                        ><i class="fas fa-user"></i
                       ></span>
                       <input
                         type="text"
-                        id="destino"
+                        id="localCliente"
                         class="form-control"
-                        placeholder="Endereço de destino"
+                        placeholder="Ex.: Santa Maria, RN, Brasil"
                       />
                     </div>
                   </div>
-                  <div class="col-md-12">
-                    <label class="form-label">Tipo de Rota</label>
-                    <select id="tipoRota" class="form-select">
-                      <option value="ida" selected>Somente Ida</option>
-                      <option value="idaEvolta">Ida e Volta</option>
-                    </select>
+                  <div class="col-md-6">
+                    <label class="form-label">Local de Entrega</label>
+                    <div class="input-group">
+                      <span class="input-group-text"
+                        ><i class="fas fa-truck-moving"></i
+                      ></span>
+                      <input
+                        type="text"
+                        id="localEntrega"
+                        class="form-control"
+                        placeholder="Ex.: Mossoró, RN, Brasil"
+                      />
+                    </div>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label">Local de Retorno</label>
+                    <div class="input-group">
+                      <span class="input-group-text"
+                        ><i class="fas fa-undo"></i
+                      ></span>
+                      <input
+                        type="text"
+                        id="localRetorno"
+                        class="form-control"
+                        placeholder="Ex.: Radar Escolta, Santa Maria, RN, Brasil"
+                      />
+                    </div>
+                  </div>
+                  <!-- Botões agrupados para CONSULTAR, VER NO MAPA e COMPARTILHAR -->
+                  <div class="col-md-12 text-center">
+                    <div class="btn-group mt-2" role="group">
+                      <button
+                        class="btn btn-outline-primary"
+                        onclick="consultarRota()"
+                      >
+                        <i class="fas fa-route me-2"></i>Consultar Rota
+                      </button>
+                      <button
+                        class="btn btn-outline-secondary"
+                        onclick="abrirGoogleMaps()"
+                      >
+                        <i class="fas fa-map-marked-alt me-2"></i>Ver no Mapa
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -155,10 +226,10 @@
                 <h5>Opções de Nota Fiscal e Pagamento</h5>
                 <div class="row g-3 align-items-center">
                   <div class="col-md-6">
-                    <label class="form-label">
-                      <i class="fas fa-file-invoice me-2"></i>Emitir Nota
-                      Fiscal?
-                    </label>
+                    <label class="form-label"
+                      ><i class="fas fa-file-invoice me-2"></i>Emitir Nota
+                      Fiscal?</label
+                    >
                     <div class="input-group">
                       <select id="notaFiscalSelect" class="form-select">
                         <option value="sim" selected>Sim</option>
@@ -169,9 +240,9 @@
                   <div class="col-md-6">
                     <label class="form-label">Taxa Nota Fiscal (%)</label>
                     <div class="input-group">
-                      <span class="input-group-text">
-                        <i class="fas fa-percent"></i>
-                      </span>
+                      <span class="input-group-text"
+                        ><i class="fas fa-percent"></i
+                      ></span>
                       <input
                         type="number"
                         id="taxaNotaFiscal"
@@ -179,6 +250,7 @@
                         step="0.01"
                         value="5"
                       />
+                      <span class="input-group-text">%</span>
                     </div>
                   </div>
                 </div>
@@ -186,9 +258,9 @@
                   <div class="col-md-4">
                     <label class="form-label">Taxa para Cartão (%)</label>
                     <div class="input-group">
-                      <span class="input-group-text">
-                        <i class="fas fa-credit-card"></i>
-                      </span>
+                      <span class="input-group-text"
+                        ><i class="fas fa-credit-card"></i
+                      ></span>
                       <input
                         type="number"
                         id="taxaCartao"
@@ -196,14 +268,15 @@
                         step="0.01"
                         value="2"
                       />
+                      <span class="input-group-text">%</span>
                     </div>
                   </div>
                   <div class="col-md-4">
                     <label class="form-label">Desconto para PIX (%)</label>
                     <div class="input-group">
-                      <span class="input-group-text">
-                        <i class="fas fa-mobile-alt"></i>
-                      </span>
+                      <span class="input-group-text"
+                        ><i class="fas fa-mobile-alt"></i
+                      ></span>
                       <input
                         type="number"
                         id="descontoPix"
@@ -211,14 +284,15 @@
                         step="0.01"
                         value="5"
                       />
+                      <span class="input-group-text">%</span>
                     </div>
                   </div>
                   <div class="col-md-4">
                     <label class="form-label">Desconto para Dinheiro (%)</label>
                     <div class="input-group">
-                      <span class="input-group-text">
-                        <i class="fas fa-money-bill-wave"></i>
-                      </span>
+                      <span class="input-group-text"
+                        ><i class="fas fa-money-bill-wave"></i
+                      ></span>
                       <input
                         type="number"
                         id="descontoDinheiro"
@@ -226,12 +300,13 @@
                         step="0.01"
                         value="10"
                       />
+                      <span class="input-group-text">%</span>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
-            <!-- Botões de Ação -->
+            <!-- Botões de Ação (para calcular custos) -->
             <div class="d-flex justify-content-between mt-4">
               <button
                 type="button"
@@ -243,11 +318,16 @@
               <button
                 type="button"
                 class="btn btn-primary"
-                onclick="calcular()"
+                onclick="performCostCalculation()"
               >
                 <i class="fas fa-calculator me-2"></i>Calcular
               </button>
             </div>
+          </div>
+          <!-- Card para exibir o mapa da rota calculada -->
+          <div class="card p-4 mb-4" id="mapCard">
+            <h4 class="mb-3 text-center">Rota Calculada</h4>
+            <div id="map" style="width: 100%; height: 400px"></div>
           </div>
           <!-- Card de Resultados -->
           <div class="result-card card p-4 mb-4">
@@ -257,42 +337,27 @@
                 Preencha os dados para ver o cálculo
               </div>
             </div>
-            <!-- Botão para Abrir o Google Maps -->
-            <div class="d-grid mt-4">
-              <button class="btn btn-outline-light" onclick="abrirGoogleMaps()">
-                <i class="fas fa-map-marked-alt me-2"></i>Explorar Rota no
-                Google Maps
+            <div class="btn-group mt-2" role="group">
+              <button class="btn btn-success" onclick="compartilharCliente()">
+                <i class="fab fa-whatsapp me-2"></i>Compartilhar para Cliente
               </button>
-            </div>
-            <!-- Botões de Compartilhamento -->
-            <div class="row mt-3">
-              <div class="col-md-6">
-                <button
-                  class="btn btn-secondary w-100"
-                  onclick="compartilharCliente()"
-                >
-                  <i class="fas fa-share-alt me-2"></i>Compartilhar para Cliente
-                </button>
-              </div>
-              <div class="col-md-6">
-                <button
-                  class="btn btn-secondary w-100"
-                  onclick="compartilharMotorista()"
-                >
-                  <i class="fas fa-share-alt me-2"></i>Compartilhar para
-                  Motorista
-                </button>
-              </div>
+              <button class="btn btn-warning" onclick="compartilharMotorista()">
+                <i class="fab fa-whatsapp me-2"></i>Compartilhar para Motorista
+              </button>
             </div>
           </div>
         </div>
       </div>
     </div>
-
     <!-- Div para exibir notificações (toast) -->
     <div id="toast"></div>
-
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="script.js"></script>
+    <!-- Carrega a API do Google Maps com async, defer e callback -->
+    <script
+      async
+      defer
+      src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCo6sflpepPLQznadxAQ6-leTdEmMd8-0o&loading=async&callback=initMap"
+    ></script>
   </body>
 </html>
