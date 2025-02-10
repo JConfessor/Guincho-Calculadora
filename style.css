@@ -7,7 +7,6 @@
 body {
   background: #f8f9fa;
   min-height: 100vh;
-  /* Padding extra para mobile */
   padding: 10px;
 }
 
@@ -44,11 +43,8 @@ body {
   padding-bottom: 10px;
 }
 
-/* Destaques */
-.highlight {
-  color: var(--accent);
-  font-weight: 600;
-}
+/* Popovers (botões de interrogação) */
+/* Os botões de interrogação já herdam estilos do Bootstrap. */
 
 /* Input Group */
 .input-group-text {
@@ -70,7 +66,7 @@ body {
 
 /* Botões de Compartilhamento */
 .btn-share {
-  background-color: #5cb85c;
+  background-color: var(--secondary);
   border: none;
   color: #242020;
   font-weight: bold;
@@ -82,8 +78,8 @@ body {
 }
 
 .btn-share:hover {
-  background-color: #ffca28;
-  color: #2a5c82;
+  background-color: var(--accent);
+  color: var(--primary);
 }
 
 /* Toast (notificação) */
@@ -98,6 +94,16 @@ body {
   opacity: 0;
   transition: opacity 0.5s ease;
   z-index: 9999;
+}
+
+/* Estilização das tabelas de resultado (tema escuro) */
+.result-table {
+  margin-bottom: 1rem;
+}
+.result-table th,
+.result-table td {
+  vertical-align: middle;
+  padding: 0.5rem;
 }
 
 /* Ajustes para mobile */

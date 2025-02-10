@@ -173,20 +173,17 @@ function performCostCalculation() {
   const kmFranquia =
     parseFloat(document.getElementById("kmFranquia").value) || 0;
 
-  // Cálculo do custo base considerando a franquia
   let kmExcedente = 0;
   if (kmTotal > kmFranquia) {
     kmExcedente = kmTotal - kmFranquia;
   }
   let baseTotal = taxa + kmExcedente * valorKm;
 
-  // Adicional noturno (percentual)
   const adicionalPercent =
     parseFloat(document.getElementById("valorAdicional").value) || 0;
   const adicionalCalculado = baseTotal * (adicionalPercent / 100);
   baseTotal += adicionalCalculado;
 
-  // Nota Fiscal
   const notaFiscal = document.getElementById("notaFiscalSelect").value;
   let totalComNota = baseTotal;
   if (notaFiscal === "sim") {
@@ -195,69 +192,132 @@ function performCostCalculation() {
     totalComNota = baseTotal * (1 + taxaNotaFiscal / 100);
   }
 
-  // Taxas e Descontos
-  const taxaCartao =
-    parseFloat(document.getElementById("taxaCartao").value) || 0;
   const descontoPix =
     parseFloat(document.getElementById("descontoPix").value) || 0;
   const descontoDinheiro =
     parseFloat(document.getElementById("descontoDinheiro").value) || 0;
-
-  const valorCartao = totalComNota * (1 + taxaCartao / 100);
   const valorPIX = totalComNota * (1 - descontoPix / 100);
   const valorDinheiro = totalComNota * (1 - descontoDinheiro / 100);
-  // Monta o HTML do resultado
-  let resultadoHTML = `
-    <div class="row g-3">
-      <div class="col-6">Taxa de Saída:</div>
-      <div class="col-6 text-end">${formatarMoeda(taxa)}</div>
 
-      <div class="col-6">Valor por KM:</div>
-      <div class="col-6 text-end">${formatarMoeda(valorKm)}</div>
+  // Detalhes dos trechos da rota (se disponíveis)
+  let leg0 =
+    ultimoLegs && ultimoLegs.length > 0
+      ? ultimoLegs[0]
+      : { duration: { text: "N/A" }, distance: { text: "N/A" } };
+  let leg1 =
+    ultimoLegs && ultimoLegs.length > 1
+      ? ultimoLegs[1]
+      : { duration: { text: "N/A" }, distance: { text: "N/A" } };
+  let leg2 =
+    ultimoLegs && ultimoLegs.length > 2
+      ? ultimoLegs[2]
+      : { duration: { text: "N/A" }, distance: { text: "N/A" } };
 
-      <div class="col-6">KM de Franquia:</div>
-      <div class="col-6 text-end">${kmFranquia.toFixed(1)} km</div>
+  let rotaDetalhesHTML = `
+    <table class="table table-dark table-striped table-bordered table-sm result-table">
+      <tbody>
+        <tr>
+          <th>Origem</th>
+          <td>${document.getElementById("localGuincho").value}</td>
+        </tr>
+        <tr>
+          <th>Cliente</th>
+          <td>${document.getElementById("localCliente").value}</td>
+        </tr>
+        <tr>
+          <th>Ponto de Entrega</th>
+          <td>${document.getElementById("localEntrega").value}</td>
+        </tr>
+        <tr>
+          <th>Retorno</th>
+          <td>${document.getElementById("localRetorno").value}</td>
+        </tr>
+        <tr>
+          <th>KM Total</th>
+          <td>${kmTotal.toFixed(1)} km</td>
+        </tr>
+        <tr>
+          <th>Tempo Estimado</th>
+          <td>${document.getElementById("tempoEstimado").value}</td>
+        </tr>
+        <tr>
+          <th>Guincho → Cliente</th>
+          <td>
+            Tempo: ${leg0.duration.text} <br/>
+            Distância: ${leg0.distance.text}
+          </td>
+        </tr>
+        <tr>
+          <th>Cliente → Entrega</th>
+          <td>
+            Tempo: ${leg1.duration.text} <br/>
+            Distância: ${leg1.distance.text}
+          </td>
+        </tr>
+        <tr>
+          <th>Entrega → Retorno</th>
+          <td>
+            Tempo: ${leg2.duration.text} <br/>
+            Distância: ${leg2.distance.text}
+          </td>
+        </tr>
+      </tbody>
+    </table>`;
 
-      <div class="col-6">KM Total:</div>
-      <div class="col-6 text-end">${kmTotal.toFixed(1)} km</div>
+  let calculoDetalhesHTML = `
+    <table class="table table-dark table-striped table-bordered table-sm result-table">
+      <tbody>
+        <tr>
+          <th>Taxa de Saída</th>
+          <td>${formatarMoeda(taxa)}</td>
+        </tr>
+        <tr>
+          <th>Valor por KM</th>
+          <td>${formatarMoeda(valorKm)}</td>
+        </tr>
+        <tr>
+          <th>KM de Franquia</th>
+          <td>${kmFranquia.toFixed(1)} km</td>
+        </tr>
+        <tr>
+          <th>KM Excedente</th>
+          <td>${kmExcedente.toFixed(1)} km</td>
+        </tr>
+        <tr>
+          <th>Custo Excedente</th>
+          <td>${formatarMoeda(kmExcedente * valorKm)}</td>
+        </tr>
+        <tr>
+          <th>Adicional Noturno</th>
+          <td>${adicionalPercent}%</td>
+        </tr>
+        <tr>
+          <th>Valor do Adicional</th>
+          <td>${formatarMoeda(adicionalCalculado)}</td>
+        </tr>
+        <tr>
+          <th>Subtotal</th>
+          <td>${formatarMoeda(baseTotal)}</td>
+        </tr>
+        ${
+          notaFiscal === "sim"
+            ? `<tr>
+          <th>Nota Fiscal</th>
+          <td>${formatarMoeda(totalComNota)}</td>
+        </tr>`
+            : ""
+        }
+        <tr class="fw-bold">
+          <th>Total</th>
+          <td>${formatarMoeda(totalComNota)}</td>
+        </tr>
+      </tbody>
+    </table>`;
 
-      <div class="col-6">KM Excedente:</div>
-      <div class="col-6 text-end">${kmExcedente.toFixed(1)} km</div>
-
-      <div class="col-6">Custo (Excedente):</div>
-      <div class="col-6 text-end">${formatarMoeda(kmExcedente * valorKm)}</div>
-
-      <div class="col-6">Adicional Noturno:</div>
-      <div class="col-6 text-end">${adicionalPercent}%</div>
-
-      <div class="col-6">Valor do Adicional:</div>
-      <div class="col-6 text-end">${formatarMoeda(adicionalCalculado)}</div>
-
-      <div class="col-12 pt-2 border-top">Subtotal:</div>
-      <div class="col-12 text-end">${formatarMoeda(baseTotal)}</div>
-  `;
-
-  if (notaFiscal === "sim") {
-    resultadoHTML += `
-      <div class="col-12">Nota Fiscal (Taxa de ${
-        document.getElementById("taxaNotaFiscal").value
-      }%):</div>
-      <div class="col-12 text-end">${formatarMoeda(totalComNota)}</div>
-    `;
-  }
-
-  resultadoHTML += `
-      <div class="col-12 mt-3 pt-2 border-top">
-        <div class="d-flex justify-content-between">
-          <span class="highlight">Total:</span>
-          <span class="highlight">${formatarMoeda(totalComNota)}</span>
-        </div>
-      </div>
-    </div>
-
+  let simulacaoPagamentoHTML = `
     <div class="mt-4">
       <h5>Simulação de Pagamento</h5>
-      <table class="table table-dark table-striped">
+      <table class="table table-dark table-striped table-bordered table-sm">
         <thead>
           <tr>
             <th>Forma de Pagamento</th>
@@ -265,10 +325,6 @@ function performCostCalculation() {
           </tr>
         </thead>
         <tbody>
-          <tr>
-            <td>Cartão</td>
-            <td>${formatarMoeda(valorCartao)}</td>
-          </tr>
           <tr>
             <td>PIX</td>
             <td>${formatarMoeda(valorPIX)}</td>
@@ -279,12 +335,24 @@ function performCostCalculation() {
           </tr>
         </tbody>
       </table>
+    </div>`;
+
+  let resultadoHTML = `
+    <div class="row">
+      <div class="col-md-6 mb-3">
+        <h5>Detalhes da Rota</h5>
+        ${rotaDetalhesHTML}
+      </div>
+      <div class="col-md-6 mb-3">
+        <h5>Detalhes do Cálculo</h5>
+        ${calculoDetalhesHTML}
+      </div>
     </div>
-  `;
+    ${simulacaoPagamentoHTML}`;
 
   document.getElementById("resultado").innerHTML = resultadoHTML;
 
-  // Salva o objeto com os valores calculados em memória
+  // Salva os dados calculados para uso posterior (compartilhamento, etc.)
   resultadoCalculado = {
     taxa,
     kmTotal,
@@ -295,17 +363,15 @@ function performCostCalculation() {
     adicionalCalculado,
     subtotal: baseTotal,
     total: totalComNota,
-    cartao: valorCartao,
     pix: valorPIX,
     dinheiro: valorDinheiro,
-    localGuincho: document.getElementById("localGuincho").value.trim(),
-    localCliente: document.getElementById("localCliente").value.trim(),
-    localEntrega: document.getElementById("localEntrega").value.trim(),
-    localRetorno: document.getElementById("localRetorno").value.trim(),
+    localGuincho: document.getElementById("localGuincho").value,
+    localCliente: document.getElementById("localCliente").value,
+    localEntrega: document.getElementById("localEntrega").value,
+    localRetorno: document.getElementById("localRetorno").value,
     rotaLink: getRouteLink(),
   };
 
-  // Salva no Local Storage
   salvarLocalStorage();
 }
 
@@ -320,103 +386,105 @@ function compartilharCliente() {
   }
 
   // Recupera os dados dos trechos da rota
-  const leg1 = ultimoLegs && ultimoLegs.length > 0 ? ultimoLegs[0] : null; // Guincho → Cliente
-  const leg2 = ultimoLegs && ultimoLegs.length > 1 ? ultimoLegs[1] : null; // Cliente → Destino
+  const leg0 =
+    ultimoLegs && ultimoLegs.length > 0
+      ? ultimoLegs[0]
+      : { duration: { text: "N/A" }, distance: { text: "N/A" } };
+  const leg1 =
+    ultimoLegs && ultimoLegs.length > 1
+      ? ultimoLegs[1]
+      : { duration: { text: "N/A" }, distance: { text: "N/A" } };
 
-  const tempoGuinchoAteCliente = leg1 ? leg1.duration.text : "N/A";
-  const distanciaGuinchoAteCliente = leg1 ? leg1.distance.text : "N/A";
-  const tempoTransporteVeiculo = leg2 ? leg2.duration.text : "N/A";
-  const distanciaTransporteVeiculo = leg2 ? leg2.distance.text : "N/A";
-
+  const tempoGuinchoAteCliente = leg0.duration.text;
+  const distanciaGuinchoAteCliente = leg0.distance.text;
+  const tempoTransporteVeiculo = leg1.duration.text;
+  const distanciaTransporteVeiculo = leg1.distance.text;
   const kmTotal = document.getElementById("kmTotal").value || "N/A";
 
-  const pagamentoCartao = formatarMoeda(resultadoCalculado.cartao);
+  // Formatação dos valores de pagamento
   const pagamentoPIX = formatarMoeda(resultadoCalculado.pix);
   const pagamentoDinheiro = formatarMoeda(resultadoCalculado.dinheiro);
 
-  // Monta a mensagem personalizada para o cliente
-  const mensagemCliente = `Olá, segue as informações do seu serviço de guincho:
+  // Mensagem para o Cliente
+  const mensagemCliente =
+    `**Informações do Serviço de Guincho**\n\n` +
+    `**1. Atendimento:**\n` +
+    `- **Tempo para o guincho chegar até você:** _${tempoGuinchoAteCliente}_\n` +
+    `- **Distância:** _${distanciaGuinchoAteCliente}_\n\n` +
+    `**2. Transporte do Veículo:**\n` +
+    `- **Tempo estimado para o transporte:** _${tempoTransporteVeiculo}_\n` +
+    `- **Distância:** _${distanciaTransporteVeiculo}_\n\n` +
+    `**3. Resumo do Percurso:**\n` +
+    `- **KM Total:** _${kmTotal}_ km\n\n` +
+    `**Opções de Pagamento:**\n` +
+    `- **PIX:** _${pagamentoPIX}_\n` +
+    `- **Dinheiro (Espécie):** _${pagamentoDinheiro}_\n\n` +
+    `Agradecemos sua preferência e estamos à disposição para quaisquer dúvidas!`;
 
-• Tempo estimado para o guincho chegar até você: ${tempoGuinchoAteCliente} (distância: ${distanciaGuinchoAteCliente})
-• Tempo estimado para transportar seu veículo até o destino: ${tempoTransporteVeiculo} (distância: ${distanciaTransporteVeiculo})
-• Total de KM percorridos: ${kmTotal} km
-
-Opções de Pagamento:
-   - Cartão: ${pagamentoCartao}
-   - PIX: ${pagamentoPIX}
-   - Espécie: ${pagamentoDinheiro}
-
-Agradecemos a sua preferência!`;
-
-  // Copia a mensagem para o clipboard e abre o WhatsApp
   navigator.clipboard
     .writeText(mensagemCliente)
     .then(() => {
-      showToast("Mensagem copiada para o clipboard!");
+      showToast("Mensagem para o cliente copiada para o clipboard!");
       const urlWhats =
         "https://wa.me/?text=" + encodeURIComponent(mensagemCliente);
       window.open(urlWhats, "_blank");
     })
     .catch((err) => {
-      console.error("Erro ao copiar para o clipboard: ", err);
+      console.error("Erro ao copiar a mensagem para o clipboard:", err);
       showToast("Erro ao copiar a mensagem.");
     });
 }
 
-/**
- * Compartilha uma mensagem para o motorista via WhatsApp, com detalhes de cada trecho.
- */
 function compartilharMotorista() {
   if (!resultadoCalculado) {
     showToast("Realize o cálculo antes de compartilhar.");
     return;
   }
 
-  // Recupera os endereços informados
-  const localGuincho = resultadoCalculado.localGuincho || "N/A";
-  const localCliente = resultadoCalculado.localCliente || "N/A";
-  const localEntrega = resultadoCalculado.localEntrega || "N/A";
-  const localRetorno = resultadoCalculado.localRetorno || "N/A";
-  const kmTotal = document.getElementById("kmTotal").value || "N/A";
-  const rotaLink = resultadoCalculado.rotaLink || "Link não disponível";
+  // Recupera os dados dos trechos da rota
+  const leg0 =
+    ultimoLegs && ultimoLegs.length > 0
+      ? ultimoLegs[0]
+      : { duration: { text: "N/A" }, distance: { text: "N/A" } };
+  const leg1 =
+    ultimoLegs && ultimoLegs.length > 1
+      ? ultimoLegs[1]
+      : { duration: { text: "N/A" }, distance: { text: "N/A" } };
+  const leg2 =
+    ultimoLegs && ultimoLegs.length > 2
+      ? ultimoLegs[2]
+      : { duration: { text: "N/A" }, distance: { text: "N/A" } };
 
-  // Obtém os detalhes de cada trecho, se disponíveis
-  const leg1 = ultimoLegs && ultimoLegs.length > 0 ? ultimoLegs[0] : null;
-  const leg2 = ultimoLegs && ultimoLegs.length > 1 ? ultimoLegs[1] : null;
-  const leg3 = ultimoLegs && ultimoLegs.length > 2 ? ultimoLegs[2] : null;
+  // Monta a mensagem para o Motorista com seções bem definidas
+  const mensagemMotorista =
+    `**Detalhes para o Motorista**\n\n` +
+    `**Rota Completa:**\n` +
+    `- **Ponto de Partida:** ${resultadoCalculado.localGuincho}\n` +
+    `- **Até o Cliente:** ${resultadoCalculado.localCliente}\n` +
+    `   - **Tempo:** ${leg0.duration.text}\n` +
+    `   - **Distância:** ${leg0.distance.text}\n\n` +
+    `- **Do Cliente ao Ponto de Entrega:** ${resultadoCalculado.localEntrega}\n` +
+    `   - **Tempo:** ${leg1.duration.text}\n` +
+    `   - **Distância:** ${leg1.distance.text}\n\n` +
+    `- **Do Ponto de Entrega ao Retorno:** ${resultadoCalculado.localRetorno}\n` +
+    `   - **Tempo:** ${leg2.duration.text}\n` +
+    `   - **Distância:** ${leg2.distance.text}\n\n` +
+    `**Resumo da Rota:**\n` +
+    `- **KM Total:** ${document.getElementById("kmTotal").value} km\n\n` +
+    `**Link da Rota:**\n` +
+    `${resultadoCalculado.rotaLink}\n\n` +
+    `Siga o percurso indicado e confirme as informações antes do atendimento. Boa viagem!`;
 
-  const mensagemMotorista = `Informações para o Motorista:
-
-Rota:
-- Ponto de partida: ${localGuincho}
-- Até o cliente: ${localCliente}
-  Tempo: ${leg1 ? leg1.duration.text : "N/A"}, Distância: ${
-    leg1 ? leg1.distance.text : "N/A"
-  }
-- Até o ponto de entrega: ${localEntrega}
-  Tempo: ${leg2 ? leg2.duration.text : "N/A"}, Distância: ${
-    leg2 ? leg2.distance.text : "N/A"
-  }
-- Até o retorno: ${localRetorno}
-  Tempo: ${leg3 ? leg3.duration.text : "N/A"}, Distância: ${
-    leg3 ? leg3.distance.text : "N/A"
-  }
-
-Total de KM percorridos: ${kmTotal} km
-
-Link da rota: ${rotaLink}`;
-
-  // Copia a mensagem para o clipboard e abre o WhatsApp
   navigator.clipboard
     .writeText(mensagemMotorista)
     .then(() => {
-      showToast("Mensagem copiada para o clipboard!");
+      showToast("Mensagem para o motorista copiada para o clipboard!");
       const urlWhats =
         "https://wa.me/?text=" + encodeURIComponent(mensagemMotorista);
       window.open(urlWhats, "_blank");
     })
     .catch((err) => {
-      console.error("Erro ao copiar para o clipboard: ", err);
+      console.error("Erro ao copiar a mensagem para o clipboard:", err);
       showToast("Erro ao copiar a mensagem.");
     });
 }
