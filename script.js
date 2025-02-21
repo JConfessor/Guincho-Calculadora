@@ -29,17 +29,31 @@ function formatarMoeda(valor) {
  * Retorna a URL para a rota no Google Maps, com base nos valores dos inputs.
  * @returns {string|null}
  */
-function getRouteLink() {
+async function getRouteLink() {
   const localGuincho = document.getElementById("localGuincho").value.trim();
   const localCliente = document.getElementById("localCliente").value.trim();
   const localEntrega = document.getElementById("localEntrega").value.trim();
   const localRetorno = document.getElementById("localRetorno").value.trim();
+
   if (localGuincho && localCliente && localEntrega && localRetorno) {
     const origin = encodeURIComponent(localGuincho);
     const destination = encodeURIComponent(localRetorno);
     const waypoints =
       encodeURIComponent(localCliente) + "|" + encodeURIComponent(localEntrega);
-    return `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&waypoints=${waypoints}&travelmode=driving`;
+
+    const longUrl = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&waypoints=${waypoints}&travelmode=driving`;
+
+    // Encurtar a URL usando TinyURL
+    try {
+      const response = await fetch(
+        `https://tinyurl.com/api-create.php?url=${encodeURIComponent(longUrl)}`
+      );
+      const shortUrl = await response.text();
+      return shortUrl;
+    } catch (error) {
+      console.error("Erro ao encurtar a URL:", error);
+      return longUrl; // Retorna o link longo caso ocorra um erro
+    }
   } else {
     showToast("Preencha todos os campos de Detalhes de Rota.");
     return null;
