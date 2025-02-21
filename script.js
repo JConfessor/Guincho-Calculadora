@@ -29,35 +29,38 @@ function formatarMoeda(valor) {
  * Retorna a URL para a rota no Google Maps, com base nos valores dos inputs.
  * @returns {string|null}
  */
-async function getRouteLink() {
+function getRouteLink() {
   const localGuincho = document.getElementById("localGuincho").value.trim();
   const localCliente = document.getElementById("localCliente").value.trim();
   const localEntrega = document.getElementById("localEntrega").value.trim();
   const localRetorno = document.getElementById("localRetorno").value.trim();
-
   if (localGuincho && localCliente && localEntrega && localRetorno) {
     const origin = encodeURIComponent(localGuincho);
     const destination = encodeURIComponent(localRetorno);
     const waypoints =
       encodeURIComponent(localCliente) + "|" + encodeURIComponent(localEntrega);
-
-    const longUrl = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&waypoints=${waypoints}&travelmode=driving`;
-
-    // Encurtar a URL usando TinyURL
-    try {
-      const response = await fetch(
-        `https://tinyurl.com/api-create.php?url=${encodeURIComponent(longUrl)}`
-      );
-      const shortUrl = await response.text();
-      return shortUrl;
-    } catch (error) {
-      console.error("Erro ao encurtar a URL:", error);
-      return longUrl; // Retorna o link longo caso ocorra um erro
-    }
+    return `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&waypoints=${waypoints}&travelmode=driving`;
   } else {
     showToast("Preencha todos os campos de Detalhes de Rota.");
     return null;
   }
+}
+
+/**
+ * Encurta uma URL utilizando a API do TinyURL (não necessita de token).
+ * @param {string} url - URL longa a ser encurtada.
+ * @returns {Promise<string>} - Promise que resolve para a URL encurtada.
+ */
+function encurtarLink(url) {
+  return fetch(
+    "https://tinyurl.com/api-create.php?url=" + encodeURIComponent(url)
+  )
+    .then((response) => response.text())
+    .catch((err) => {
+      console.error("Erro ao encurtar URL:", err);
+      // Em caso de erro, retorna a URL original
+      return url;
+    });
 }
 
 /**
@@ -469,38 +472,40 @@ function compartilharMotorista() {
       ? ultimoLegs[2]
       : { duration: { text: "N/A" }, distance: { text: "N/A" } };
 
-  // Monta a mensagem para o Motorista com seções bem definidas
-  const mensagemMotorista =
-    `**Detalhes para o Motorista**\n\n` +
-    `**Rota Completa:**\n` +
-    `- **Ponto de Partida:** ${resultadoCalculado.localGuincho}\n` +
-    `- **Até o Cliente:** ${resultadoCalculado.localCliente}\n` +
-    `   - **Tempo:** ${leg0.duration.text}\n` +
-    `   - **Distância:** ${leg0.distance.text}\n\n` +
-    `- **Do Cliente ao Ponto de Entrega:** ${resultadoCalculado.localEntrega}\n` +
-    `   - **Tempo:** ${leg1.duration.text}\n` +
-    `   - **Distância:** ${leg1.distance.text}\n\n` +
-    `- **Do Ponto de Entrega ao Retorno:** ${resultadoCalculado.localRetorno}\n` +
-    `   - **Tempo:** ${leg2.duration.text}\n` +
-    `   - **Distância:** ${leg2.distance.text}\n\n` +
-    `**Resumo da Rota:**\n` +
-    `- **KM Total:** ${document.getElementById("kmTotal").value} km\n\n` +
-    `**Link da Rota:**\n` +
-    `${resultadoCalculado.rotaLink}\n\n` +
-    `Siga o percurso indicado e confirme as informações antes do atendimento. Boa viagem!`;
+  // Encurta o link da rota e monta a mensagem com a URL encurtada
+  encurtarLink(resultadoCalculado.rotaLink).then((shortUrl) => {
+    const mensagemMotorista =
+      `**Detalhes para o Motorista**\n\n` +
+      `**Rota Completa:**\n` +
+      `- **Ponto de Partida:** ${resultadoCalculado.localGuincho}\n` +
+      `- **Até o Cliente:** ${resultadoCalculado.localCliente}\n` +
+      `   - **Tempo:** ${leg0.duration.text}\n` +
+      `   - **Distância:** ${leg0.distance.text}\n\n` +
+      `- **Do Cliente ao Ponto de Entrega:** ${resultadoCalculado.localEntrega}\n` +
+      `   - **Tempo:** ${leg1.duration.text}\n` +
+      `   - **Distância:** ${leg1.distance.text}\n\n` +
+      `- **Do Ponto de Entrega ao Retorno:** ${resultadoCalculado.localRetorno}\n` +
+      `   - **Tempo:** ${leg2.duration.text}\n` +
+      `   - **Distância:** ${leg2.distance.text}\n\n` +
+      `**Resumo da Rota:**\n` +
+      `- **KM Total:** ${document.getElementById("kmTotal").value} km\n\n` +
+      `**Link da Rota:**\n` +
+      `${shortUrl}\n\n` +
+      `Siga o percurso indicado e confirme as informações antes do atendimento. Boa viagem!`;
 
-  navigator.clipboard
-    .writeText(mensagemMotorista)
-    .then(() => {
-      showToast("Mensagem para o motorista copiada para o clipboard!");
-      const urlWhats =
-        "https://wa.me/?text=" + encodeURIComponent(mensagemMotorista);
-      window.open(urlWhats, "_blank");
-    })
-    .catch((err) => {
-      console.error("Erro ao copiar a mensagem para o clipboard:", err);
-      showToast("Erro ao copiar a mensagem.");
-    });
+    navigator.clipboard
+      .writeText(mensagemMotorista)
+      .then(() => {
+        showToast("Mensagem para o motorista copiada para o clipboard!");
+        const urlWhats =
+          "https://wa.me/?text=" + encodeURIComponent(mensagemMotorista);
+        window.open(urlWhats, "_blank");
+      })
+      .catch((err) => {
+        console.error("Erro ao copiar a mensagem para o clipboard:", err);
+        showToast("Erro ao copiar a mensagem.");
+      });
+  });
 }
 
 /**
