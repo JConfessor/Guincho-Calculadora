@@ -26,6 +26,18 @@ function formatarMoeda(valor) {
 }
 
 /**
+ * Formata um tempo em segundos para o padrão "X h Y min".
+ * @param {number} seconds
+ * @returns {string}
+ */
+function formatDuration(seconds) {
+  let totalMinutes = Math.floor(seconds / 60);
+  let hours = Math.floor(totalMinutes / 60);
+  let minutes = totalMinutes % 60;
+  return (hours > 0 ? hours + " h " : "") + minutes + " min";
+}
+
+/**
  * Retorna a URL para a rota no Google Maps, com base nos valores dos inputs.
  * @returns {string|null}
  */
@@ -105,6 +117,10 @@ function initMap() {
  * Calcula a rota utilizando o Directions Service.
  * Atualiza os campos "KM Total" e "Tempo Estimado" e exibe o mapa.
  * Armazena o array de "legs" na variável global "ultimoLegs".
+ * Aplica os ajustes:
+ * - Adiciona 15 minutos ao tempo do trecho Guincho → Cliente;
+ * - Aumenta em 30% o tempo do trecho Cliente → Entrega;
+ * - Acrescenta 15 minutos de carga/descarga no tempo total.
  * @param {function} callback - Função opcional a ser chamada após o cálculo.
  */
 function calcularRota(callback) {
@@ -143,23 +159,35 @@ function calcularRota(callback) {
       // Armazena os legs para uso no compartilhamento
       ultimoLegs = result.routes[0].legs;
 
-      // Soma a distância e a duração de cada trecho
+      // Calcula a distância total normalmente
       let totalDistance = 0; // em metros
-      let totalDuration = 0; // em segundos
       ultimoLegs.forEach((leg) => {
         totalDistance += leg.distance.value;
-        totalDuration += leg.duration.value;
       });
+
+      // Aplica os ajustes de tempo:
+      // - Adiciona 15 min (900 s) no trecho Guincho → Cliente
+      // - Aumenta em 30% o tempo no trecho Cliente → Entrega
+      // - Trecho Entrega → Retorno permanece inalterado
+      // - Acrescenta 15 min (900 s) de carga/descarga no total
+      let leg0Sec = ultimoLegs[0] ? ultimoLegs[0].duration.value : 0;
+      let leg1Sec = ultimoLegs[1] ? ultimoLegs[1].duration.value : 0;
+      let leg2Sec = ultimoLegs[2] ? ultimoLegs[2].duration.value : 0;
+      let adjustedLeg0 = leg0Sec + 900; // 15 min a mais
+      let adjustedLeg1 = leg1Sec * 1.3; // 30% a mais
+      let adjustedLeg2 = leg2Sec; // sem alteração
+      let extraLoadUnload = 900; // 15 min para carga/descarga
+      let totalDurationAdjusted =
+        adjustedLeg0 + adjustedLeg1 + adjustedLeg2 + extraLoadUnload;
+
       const km = (totalDistance / 1000).toFixed(1);
-      const hours = Math.floor(totalDuration / 3600);
-      const minutes = Math.floor((totalDuration % 3600) / 60);
-      const durationStr = (hours > 0 ? hours + " h " : "") + minutes + " min";
+      const durationStr = formatDuration(totalDurationAdjusted);
 
       document.getElementById("kmTotal").value = km;
       document.getElementById("tempoEstimado").value = durationStr;
       showToast("Distância: " + km + " km | Tempo: " + durationStr);
 
-      if (callback) callback({ km: km, duration: totalDuration });
+      if (callback) callback({ km: km, duration: totalDurationAdjusted });
     } else {
       showToast("Erro ao calcular a rota: " + status);
       console.error("Directions request returned no results:", status);
@@ -182,6 +210,8 @@ function consultarRota() {
 /**
  * Executa o cálculo dos custos do serviço (simulação de pagamento, etc).
  * Considera o KM de Franquia dentro da taxa de saída.
+ * Atualiza o resumo exibido na tela com os tempos ajustados e adiciona uma linha
+ * para o tempo de carga/descarga.
  */
 function performCostCalculation() {
   const taxa = parseFloat(document.getElementById("taxa").value) || 0;
@@ -216,19 +246,26 @@ function performCostCalculation() {
   const valorPIX = totalComNota * (1 - descontoPix / 100);
   const valorDinheiro = totalComNota * (1 - descontoDinheiro / 100);
 
-  // Detalhes dos trechos da rota (se disponíveis)
+  // Recupera e ajusta os tempos dos trechos da rota
   let leg0 =
     ultimoLegs && ultimoLegs.length > 0
       ? ultimoLegs[0]
-      : { duration: { text: "N/A" }, distance: { text: "N/A" } };
+      : { duration: { text: "N/A", value: 0 }, distance: { text: "N/A" } };
   let leg1 =
     ultimoLegs && ultimoLegs.length > 1
       ? ultimoLegs[1]
-      : { duration: { text: "N/A" }, distance: { text: "N/A" } };
+      : { duration: { text: "N/A", value: 0 }, distance: { text: "N/A" } };
   let leg2 =
     ultimoLegs && ultimoLegs.length > 2
       ? ultimoLegs[2]
       : { duration: { text: "N/A" }, distance: { text: "N/A" } };
+
+  let adjustedLeg0Text = leg0.duration.value
+    ? formatDuration(leg0.duration.value + 900)
+    : "N/A";
+  let adjustedLeg1Text = leg1.duration.value
+    ? formatDuration(leg1.duration.value * 1.3)
+    : "N/A";
 
   let rotaDetalhesHTML = `
     <table class="table table-dark table-striped table-bordered table-sm result-table">
@@ -258,16 +295,20 @@ function performCostCalculation() {
           <td>${document.getElementById("tempoEstimado").value}</td>
         </tr>
         <tr>
+          <th>Tempo de Saída (Já está adicionado no tempo Guincho → Cliente) </th>
+          <td>15 min</td>
+        </tr>
+        <tr>
           <th>Guincho → Cliente</th>
           <td>
-            Tempo: ${leg0.duration.text} <br/>
+            Tempo: ${adjustedLeg0Text} <br/>
             Distância: ${leg0.distance.text}
           </td>
         </tr>
         <tr>
           <th>Cliente → Entrega</th>
           <td>
-            Tempo: ${leg1.duration.text} <br/>
+            Tempo: ${adjustedLeg1Text} <br/>
             Distância: ${leg1.distance.text}
           </td>
         </tr>
@@ -277,6 +318,10 @@ function performCostCalculation() {
             Tempo: ${leg2.duration.text} <br/>
             Distância: ${leg2.distance.text}
           </td>
+        </tr>
+        <tr>
+          <th>Tempo de Carga/Descarga</th>
+          <td>15 min</td>
         </tr>
       </tbody>
     </table>`;
@@ -406,15 +451,23 @@ function compartilharCliente() {
   const leg0 =
     ultimoLegs && ultimoLegs.length > 0
       ? ultimoLegs[0]
-      : { duration: { text: "N/A" }, distance: { text: "N/A" } };
+      : { duration: { text: "N/A", value: 0 }, distance: { text: "N/A" } };
   const leg1 =
     ultimoLegs && ultimoLegs.length > 1
       ? ultimoLegs[1]
-      : { duration: { text: "N/A" }, distance: { text: "N/A" } };
+      : { duration: { text: "N/A", value: 0 }, distance: { text: "N/A" } };
 
-  const tempoGuinchoAteCliente = leg0.duration.text;
+  // Aplica os ajustes:
+  // - Adiciona 15 minutos (900 s) no tempo do trecho Guincho → Cliente
+  // - Aumenta em 30% o tempo do trecho Cliente → Entrega
+  const tempoAtendimento = leg0.duration.value
+    ? formatDuration(leg0.duration.value + 900)
+    : "N/A";
+  const tempoTransporte = leg1.duration.value
+    ? formatDuration(leg1.duration.value * 1.3)
+    : "N/A";
+
   const distanciaGuinchoAteCliente = leg0.distance.text;
-  const tempoTransporteVeiculo = leg1.duration.text;
   const distanciaTransporteVeiculo = leg1.distance.text;
   const kmTotal = document.getElementById("kmTotal").value || "N/A";
 
@@ -422,20 +475,20 @@ function compartilharCliente() {
   const pagamentoPIX = formatarMoeda(resultadoCalculado.pix);
   const pagamentoDinheiro = formatarMoeda(resultadoCalculado.dinheiro);
 
-  // Mensagem para o Cliente
+  // Mensagem atualizada para o Cliente com os tempos ajustados, usando apenas 1 * para formatação
   const mensagemCliente =
-    `**Informações do Serviço de Guincho**\n\n` +
-    `**1. Atendimento:**\n` +
-    `- **Tempo para o guincho chegar até você:** _${tempoGuinchoAteCliente}_\n` +
-    `- **Distância:** _${distanciaGuinchoAteCliente}_\n\n` +
-    `**2. Transporte do Veículo:**\n` +
-    `- **Tempo estimado para o transporte:** _${tempoTransporteVeiculo}_\n` +
-    `- **Distância:** _${distanciaTransporteVeiculo}_\n\n` +
-    `**3. Resumo do Percurso:**\n` +
-    `- **KM Total:** _${kmTotal}_ km\n\n` +
-    `**Opções de Pagamento:**\n` +
-    `- **PIX:** _${pagamentoPIX}_\n` +
-    `- **Dinheiro (Espécie):** _${pagamentoDinheiro}_\n\n` +
+    `*Informações do Serviço de Guincho*\n\n` +
+    `*1. Atendimento:*\n` +
+    `- *Tempo para o guincho chegar até você:* _${tempoAtendimento}_\n` +
+    `- *Distância:* _${distanciaGuinchoAteCliente}_\n\n` +
+    `*2. Transporte do Veículo:*\n` +
+    `- *Tempo estimado para o transporte:* _${tempoTransporte}_\n` +
+    `- *Distância:* _${distanciaTransporteVeiculo}_\n\n` +
+    `*3. Resumo do Percurso:*\n` +
+    `- *KM Total:* _${kmTotal}_ km\n\n` +
+    `*Opções de Pagamento:*\n` +
+    `- *PIX:* _${pagamentoPIX}_\n` +
+    `- *Dinheiro (Espécie):* _${pagamentoDinheiro}_\n\n` +
     `Agradecemos sua preferência e estamos à disposição para quaisquer dúvidas!`;
 
   navigator.clipboard
@@ -452,46 +505,63 @@ function compartilharCliente() {
     });
 }
 
+/**
+ * Compartilha a mensagem para o motorista via WhatsApp.
+ * A mensagem é exibida em caixa alta e utiliza apenas 1 * para formatação.
+ */
 function compartilharMotorista() {
   if (!resultadoCalculado) {
     showToast("Realize o cálculo antes de compartilhar.");
     return;
   }
 
-  // Recupera os dados dos trechos da rota
-  const leg0 =
+  // Recupera os dados dos trechos da rota e aplica os ajustes
+  let leg0 =
     ultimoLegs && ultimoLegs.length > 0
       ? ultimoLegs[0]
-      : { duration: { text: "N/A" }, distance: { text: "N/A" } };
-  const leg1 =
+      : { duration: { text: "N/A", value: 0 }, distance: { text: "N/A" } };
+  let leg1 =
     ultimoLegs && ultimoLegs.length > 1
       ? ultimoLegs[1]
-      : { duration: { text: "N/A" }, distance: { text: "N/A" } };
-  const leg2 =
+      : { duration: { text: "N/A", value: 0 }, distance: { text: "N/A" } };
+  let leg2 =
     ultimoLegs && ultimoLegs.length > 2
       ? ultimoLegs[2]
       : { duration: { text: "N/A" }, distance: { text: "N/A" } };
 
+  let adjustedLeg0Sec = leg0.duration.value + 900;
+  let adjustedLeg1Sec = leg1.duration.value * 1.3;
+  let adjustedLeg0Text = adjustedLeg0Sec
+    ? formatDuration(adjustedLeg0Sec)
+    : "N/A";
+  let adjustedLeg1Text = adjustedLeg1Sec
+    ? formatDuration(adjustedLeg1Sec)
+    : "N/A";
+
   // Encurta o link da rota e monta a mensagem com a URL encurtada
   encurtarLink(resultadoCalculado.rotaLink).then((shortUrl) => {
-    const mensagemMotorista =
-      `**Detalhes para o Motorista**\n\n` +
-      `**Rota Completa:**\n` +
-      `- **Ponto de Partida:** ${resultadoCalculado.localGuincho}\n` +
-      `- **Até o Cliente:** ${resultadoCalculado.localCliente}\n` +
-      `   - **Tempo:** ${leg0.duration.text}\n` +
-      `   - **Distância:** ${leg0.distance.text}\n\n` +
-      `- **Do Cliente ao Ponto de Entrega:** ${resultadoCalculado.localEntrega}\n` +
-      `   - **Tempo:** ${leg1.duration.text}\n` +
-      `   - **Distância:** ${leg1.distance.text}\n\n` +
-      `- **Do Ponto de Entrega ao Retorno:** ${resultadoCalculado.localRetorno}\n` +
-      `   - **Tempo:** ${leg2.duration.text}\n` +
-      `   - **Distância:** ${leg2.distance.text}\n\n` +
-      `**Resumo da Rota:**\n` +
-      `- **KM Total:** ${document.getElementById("kmTotal").value} km\n\n` +
-      `**Link da Rota:**\n` +
+    let mensagemMotorista =
+      `*DETALHES PARA O MOTORISTA*\n\n` +
+      `*ROTA COMPLETA:*\n` +
+      `- *PONTO DE PARTIDA:* ${resultadoCalculado.localGuincho}\n` +
+      `- *ATÉ O CLIENTE:* ${resultadoCalculado.localCliente}\n` +
+      `   - *TEMPO:* ${adjustedLeg0Text}\n` +
+      `   - *DISTÂNCIA:* ${leg0.distance.text}\n\n` +
+      `- *DO CLIENTE AO PONTO DE ENTREGA:* ${resultadoCalculado.localEntrega}\n` +
+      `   - *TEMPO:* ${adjustedLeg1Text}\n` +
+      `   - *DISTÂNCIA:* ${leg1.distance.text}\n\n` +
+      `- *DO PONTO DE ENTREGA AO RETORNO:* ${resultadoCalculado.localRetorno}\n` +
+      `   - *TEMPO:* ${leg2.duration.text}\n` +
+      `   - *DISTÂNCIA:* ${leg2.distance.text}\n\n` +
+      `*RESUMO DA ROTA:*\n` +
+      `- *KM TOTAL:* ${document.getElementById("kmTotal").value} KM\n\n` +
+      `*TEMPO ADICIONAL DE CARGA/DESCARGA:* 15 MIN\n\n` +
+      `*LINK DA ROTA:*\n` +
       `${shortUrl}\n\n` +
-      `Siga o percurso indicado e confirme as informações antes do atendimento. Boa viagem!`;
+      `SIGA O PERCURSO INDICADO E CONFIRME AS INFORMAÇÕES ANTES DO ATENDIMENTO. BOA VIAGEM!`;
+
+    // Converte toda a mensagem para caixa alta
+    mensagemMotorista = mensagemMotorista.toUpperCase();
 
     navigator.clipboard
       .writeText(mensagemMotorista)
